@@ -7,19 +7,110 @@ on:
       - main
 
 jobs:
-  lint:
+  # Change detection to optimize CI pipeline
+  change-detection:
     runs-on: ubuntu-latest
-
+    outputs:
+      web-changed: ${{ steps.changes.outputs.web }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+      any-app-changed: ${{ steps.changes.outputs.any-app }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for PR change detection
+
+      - name: Detect changes
+        id: changes
+        run: |
+          echo "Detecting changes..."
+
+          # For push to main, assume everything changed
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "Push to main branch - assuming all apps changed"
+            echo "web=true" >> $GITHUB_OUTPUT
+            echo "docs=true" >> $GITHUB_OUTPUT
+            echo "any-app=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For PRs, detect actual changes
+          echo "Checking PR changes..."
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Check web app changes
+          if git diff --quiet $BASE_SHA...$HEAD_SHA -- turbo/apps/web/ turbo/packages/; then
+            echo "No changes in web app"
+            WEB_CHANGED="false"
+          else
+            echo "Changes detected in web app"
+            WEB_CHANGED="true"
+          fi
+
+          # Check docs app changes
+          if git diff --quiet $BASE_SHA...$HEAD_SHA -- turbo/apps/docs/ turbo/packages/; then
+            echo "No changes in docs app"
+            DOCS_CHANGED="false"
+          else
+            echo "Changes detected in docs app"
+            DOCS_CHANGED="true"
+          fi
+
+          # Check root config changes (affects all apps)
+          if ! git diff --quiet $BASE_SHA...$HEAD_SHA -- turbo/package.json turbo/pnpm-lock.yaml turbo/turbo.json; then
+            echo "Root config changes detected"
+            WEB_CHANGED="true"
+            DOCS_CHANGED="true"
+          fi
+
+          # Set outputs
+          echo "web=$WEB_CHANGED" >> $GITHUB_OUTPUT
+          echo "docs=$DOCS_CHANGED" >> $GITHUB_OUTPUT
+
+          # Any app changed?
+          if [ "$WEB_CHANGED" == "true" ] || [ "$DOCS_CHANGED" == "true" ]; then
+            echo "any-app=true" >> $GITHUB_OUTPUT
+          else
+            echo "any-app=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Summary
+          echo "=== Change Detection Summary ==="
+          echo "Web app changed: $WEB_CHANGED"
+          echo "Docs app changed: $DOCS_CHANGED"
+          echo "================================"
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: [change-detection]
+    if: needs.change-detection.outputs.any-app-changed == 'true' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
+
+      # Add pnpm caching
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Lint
         run: npx -y @evilmartians/lefthook run pre-commit --all-files
 
   test:
     runs-on: ubuntu-latest
-
+    needs: [change-detection]
+    if: needs.change-detection.outputs.any-app-changed == 'true' || github.event_name == 'push'
     services:
       postgres:
         image: postgres:17-alpine
@@ -35,16 +126,60 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
+
+      # Add pnpm caching
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Test
         run: cd turbo && pnpm test
 
   build-web:
     runs-on: ubuntu-latest
+    needs: [change-detection, test]
+    if: needs.change-detection.outputs.web-changed == 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
+
+      # Add pnpm and build caching
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Setup build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            turbo/.turbo
+            turbo/**/.next/cache
+          key: ${{ runner.os }}-build-web-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-web-
 
       - name: Build Web Application
         uses: ./.github/actions/vercel-build
@@ -56,11 +191,39 @@ jobs:
 
   build-docs:
     runs-on: ubuntu-latest
+    needs: [change-detection, test]
+    if: needs.change-detection.outputs.docs-changed == 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
 
-      - name: Build Web Application
+      # Add pnpm and build caching
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Setup build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            turbo/.turbo
+            turbo/**/.next/cache
+          key: ${{ runner.os }}-build-docs-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-docs-
+
+      - name: Build Docs Application
         uses: ./.github/actions/vercel-build
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -71,15 +234,16 @@ jobs:
   # Database for preview environment
   database:
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'pull_request'
+    needs: [change-detection, test, lint]
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.web-changed == 'true'
     permissions:
-      contents: read
       deployments: write
     outputs:
       database-url: ${{ steps.branch.outputs.database-url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
 
       - name: Create Neon Branch and Run Migrations
@@ -94,14 +258,19 @@ jobs:
   # Deploy web application
   deploy-web:
     runs-on: ubuntu-latest
-    needs: [build-web, database]
-    if: github.event_name == 'pull_request'
+    needs: [build-web, database, lint]
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      needs.build-web.result == 'success' &&
+      needs.database.result == 'success'
     permissions:
-      contents: read
       pull-requests: write
       deployments: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
 
       - name: Download build artifacts
@@ -126,14 +295,19 @@ jobs:
   # Deploy docs application
   deploy-docs:
     runs-on: ubuntu-latest
-    needs: [build-docs]
-    if: github.event_name == 'pull_request' && vars.VERCEL_PROJECT_ID_DOCS != ''
+    needs: [build-docs, lint]
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      needs.build-docs.result == 'success' &&
+      vars.VERCEL_PROJECT_ID_DOCS != ''
     permissions:
-      contents: read
       pull-requests: write
       deployments: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/init
 
       - name: Download build artifacts
