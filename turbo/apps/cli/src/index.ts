@@ -1,19 +1,19 @@
-import { FOO } from "@makita/core";
+import { FOO } from "@vm0/core";
 import { Command } from "commander";
 import chalk from "chalk";
 
 const program = new Command();
 
 program
-  .name("makita-cli")
-  .description("Makita CLI - A modern build tool")
+  .name("vm0-cli")
+  .description("Vm0 CLI - A modern build tool")
   .version("0.1.0");
 
 program
   .command("hello")
   .description("Say hello from the App")
   .action(() => {
-    console.log(chalk.blue("Welcome to the Makita CLI!"));
+    console.log(chalk.blue("Welcome to the Vm0 CLI!"));
     console.log(chalk.green(`Core says: ${FOO}`));
   });
 

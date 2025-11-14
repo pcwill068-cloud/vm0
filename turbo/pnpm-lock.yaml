@@ -29,7 +29,7 @@ importers:
 
   apps/cli:
     dependencies:
-      '@makita/core':
+      '@vm0/core':
         specifier: workspace:*
         version: link:../../packages/core
       chalk:
@@ -39,10 +39,10 @@ importers:
         specifier: ^14.0.0
         version: 14.0.0
     devDependencies:
-      '@makita/eslint-config':
+      '@vm0/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@makita/typescript-config':
+      '@vm0/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
@@ -85,10 +85,10 @@ importers:
         specifier: ^19.1.1
         version: 19.1.1(react@19.1.1)
     devDependencies:
-      '@makita/eslint-config':
+      '@vm0/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@makita/typescript-config':
+      '@vm0/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@tailwindcss/postcss':
@@ -121,10 +121,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@makita/core':
+      '@vm0/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@makita/ui':
+      '@vm0/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@neondatabase/serverless':
@@ -164,10 +164,10 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5
     devDependencies:
-      '@makita/eslint-config':
+      '@vm0/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@makita/typescript-config':
+      '@vm0/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@testing-library/jest-dom':
@@ -219,10 +219,10 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5
     devDependencies:
-      '@makita/eslint-config':
+      '@vm0/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@makita/typescript-config':
+      '@vm0/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       typescript:
@@ -279,10 +279,10 @@ importers:
         specifier: ^19.1.1
         version: 19.1.1(react@19.1.1)
     devDependencies:
-      '@makita/eslint-config':
+      '@vm0/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@makita/typescript-config':
+      '@vm0/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':

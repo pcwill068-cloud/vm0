@@ -1,4 +1,4 @@
-# Makita Stack
+# Vm0 Stack
 
 A modern, production-ready monorepo template featuring TypeScript, Next.js, and automated CI/CD with comprehensive deployment tracking.
 
@@ -7,7 +7,7 @@ A modern, production-ready monorepo template featuring TypeScript, Next.js, and 
 To create a new project from this template, copy and paste the following prompt to your preferred coding AI assistant:
 
 ```
-I want to create a new project based on the Makita monorepo template. Please help me set up everything automatically.
+I want to create a new project based on the Vm0 monorepo template. Please help me set up everything automatically.
 
 Here's what I need you to do:
 1. First, verify GitHub CLI installation and authentication:
@@ -21,10 +21,10 @@ Here's what I need you to do:
    - Only proceed after confirming successful authentication
 2. Ask me for my GitHub username and the new project name
 3. Ask me for all the required tokens and secrets (tell me where to get each one)
-4. Use GitHub CLI to create a new repository from the makita template
+4. Use GitHub CLI to create a new repository from the vm0 template
 5. Use Vercel API to create web and docs projects automatically
 6. Set up all repository secrets and variables using GitHub CLI
-7. Replace all "makita" references in the code with my project name
+7. Replace all "vm0" references in the code with my project name
 8. If NPM_TOKEN is not provided, remove CLI package and related configurations:
    - Delete turbo/apps/cli directory
    - Remove CLI-related jobs from .github/workflows/turbo.yml and .github/workflows/release-please.yml
@@ -46,7 +46,7 @@ Required GitHub repository variables (use `gh variable set`):
 - VERCEL_PROJECT_ID_WEB (will be auto-created via Vercel API)
 - VERCEL_PROJECT_ID_DOCS (will be auto-created via Vercel API)
 
-Template repository: https://github.com/e7h4n/makita
+Template repository: https://github.com/e7h4n/vm0
 
 Use Vercel API to automatically create:
 - Web project: POST https://api.vercel.com/v11/projects with configuration:

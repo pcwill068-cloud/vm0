@@ -38,7 +38,7 @@ Configure these in your GitHub repository settings (Settings → Secrets and var
 ## Initial Setup
 
 1. **Configure Vercel Project Settings**:
-   - Go to your Vercel project settings: https://vercel.com/[your-team]/makita/settings
+   - Go to your Vercel project settings: https://vercel.com/[your-team]/vm0/settings
    - Under "General" → "Root Directory", set it to: `turbo/apps/web`
    - Save the changes
 

@@ -1,4 +1,4 @@
-import { FOO } from "@makita/core";
+import { FOO } from "@vm0/core";
 import { test, expect, describe } from "vitest";
 
 describe("CLI Tests", () => {

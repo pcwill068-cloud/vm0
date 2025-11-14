@@ -1,5 +1,5 @@
 {
-  "name": "makita",
+  "name": "vm0",
   "private": true,
   "scripts": {
     "build": "turbo run build",

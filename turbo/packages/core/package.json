@@ -1,5 +1,5 @@
 {
-  "name": "@makita/core",
+  "name": "@vm0/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@makita/eslint-config": "workspace:*",
-    "@makita/typescript-config": "workspace:*",
+    "@vm0/eslint-config": "workspace:*",
+    "@vm0/typescript-config": "workspace:*",
     "typescript": "5.9.2",
     "vitest": "^3.2.4"
   },
