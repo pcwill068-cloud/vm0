@@ -1,2 +1,7 @@
 extends:
   - ./turbo/lefthook.yml
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx -y commitlint --config commitlint.config.mjs --edit "{1}"
