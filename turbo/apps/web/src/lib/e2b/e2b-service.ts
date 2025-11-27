@@ -58,8 +58,16 @@ export class E2BService {
 
     if (context.resumeArtifact) {
       // Resume from artifact snapshot
+      // Get mount path from agent config
+      const agentConfigYaml = context.agentConfig as
+        | AgentConfigYaml
+        | undefined;
+      const mountPath =
+        agentConfigYaml?.agents?.[0]?.working_dir || "/workspace";
+
       const artifactResult = await storageService.prepareArtifactFromSnapshot(
         context.resumeArtifact,
+        mountPath,
         context.runId,
       );
 

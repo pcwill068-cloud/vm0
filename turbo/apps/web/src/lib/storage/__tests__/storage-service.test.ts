@@ -295,12 +295,8 @@ describe("StorageService", () => {
   describe("prepareArtifactFromSnapshot", () => {
     it("should prepare VAS artifact from snapshot with specific version", async () => {
       const snapshot = {
-        driver: "vas" as const,
-        mountPath: "/workspace",
-        vasStorageName: "test-artifact",
-        snapshot: {
-          versionId: "version-123-456",
-        },
+        artifactName: "test-artifact",
+        artifactVersion: "version-123-456",
       };
 
       // Mock database query for storageVersions
@@ -329,6 +325,7 @@ describe("StorageService", () => {
 
       const result = await storageService.prepareArtifactFromSnapshot(
         snapshot,
+        "/workspace",
         "test-run-id",
       );
 
@@ -345,22 +342,21 @@ describe("StorageService", () => {
       );
     });
 
-    it("should return error when VAS snapshot is missing versionId", async () => {
+    it("should return error when artifact snapshot is missing artifactVersion", async () => {
       const snapshot = {
-        driver: "vas" as const,
-        mountPath: "/workspace",
-        vasStorageName: "test-artifact",
-        // No snapshot with versionId
+        artifactName: "test-artifact",
+        artifactVersion: "", // Empty version
       };
 
       const result = await storageService.prepareArtifactFromSnapshot(
         snapshot,
+        "/workspace",
         "test-run-id",
       );
 
       expect(result.preparedArtifact).toBeNull();
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain("VAS snapshot missing versionId");
+      expect(result.errors[0]).toContain("artifactVersion");
     });
   });
 
