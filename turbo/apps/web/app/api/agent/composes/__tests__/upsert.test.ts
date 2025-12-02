@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 import { POST } from "../route";
 import { GET } from "../[id]/route";
 import { initServices } from "../../../../../src/lib/init-services";
-import { agentConfigs } from "../../../../../src/db/schema/agent-config";
+import { agentComposes } from "../../../../../src/db/schema/agent-compose";
 import { eq } from "drizzle-orm";
 
 // Mock the auth module
@@ -15,7 +15,7 @@ vi.mock("../../../../../src/lib/auth/get-user-id", () => ({
   getUserId: async () => mockUserId,
 }));
 
-describe("Agent Config Upsert Behavior", () => {
+describe("Agent Compose Upsert Behavior", () => {
   const testUserId = "test-user-123";
 
   beforeAll(() => {
@@ -23,14 +23,14 @@ describe("Agent Config Upsert Behavior", () => {
   });
 
   afterAll(async () => {
-    // Cleanup: Delete test configs
+    // Cleanup: Delete test composes
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.userId, testUserId));
+      .delete(agentComposes)
+      .where(eq(agentComposes.userId, testUserId));
   });
 
-  describe("POST /api/agent/configs", () => {
-    it("should create new config when name does not exist", async () => {
+  describe("POST /api/agent/composes", () => {
+    it("should create new compose when name does not exist", async () => {
       const config = {
         version: "1.0",
         agents: {
@@ -42,7 +42,7 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      const request = new Request("http://localhost:3000/api/agent/configs", {
+      const request = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,11 +56,11 @@ describe("Agent Config Upsert Behavior", () => {
       expect(response.status).toBe(201);
       expect(data.action).toBe("created");
       expect(data.name).toBe("test-agent-create");
-      expect(data.configId).toBeDefined();
+      expect(data.composeId).toBeDefined();
       expect(data.createdAt).toBeDefined();
     });
 
-    it("should update existing config when name matches", async () => {
+    it("should update existing compose when name matches", async () => {
       const config = {
         version: "1.0",
         agents: {
@@ -74,7 +74,7 @@ describe("Agent Config Upsert Behavior", () => {
       };
 
       // First create
-      const request1 = new Request("http://localhost:3000/api/agent/configs", {
+      const request1 = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -86,7 +86,7 @@ describe("Agent Config Upsert Behavior", () => {
       const data1 = await response1.json();
 
       expect(data1.action).toBe("created");
-      const configId = data1.configId;
+      const composeId = data1.composeId;
 
       // Then update with same name
       const updatedConfig = {
@@ -99,7 +99,7 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      const request2 = new Request("http://localhost:3000/api/agent/configs", {
+      const request2 = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -112,24 +112,24 @@ describe("Agent Config Upsert Behavior", () => {
 
       expect(response2.status).toBe(200);
       expect(data2.action).toBe("updated");
-      expect(data2.configId).toBe(configId); // Same ID
+      expect(data2.composeId).toBe(composeId); // Same ID
       expect(data2.name).toBe("test-agent-update");
       expect(data2.updatedAt).toBeDefined();
 
-      // Verify the config was actually updated
+      // Verify the compose was actually updated
       const getRequest = new Request(
-        `http://localhost:3000/api/agent/configs/${configId}`,
+        `http://localhost:3000/api/agent/composes/${composeId}`,
         {
           method: "GET",
         },
       );
 
       const getResponse = await GET(getRequest as NextRequest, {
-        params: Promise.resolve({ id: configId }),
+        params: Promise.resolve({ id: composeId }),
       });
-      const configData = await getResponse.json();
+      const composeData = await getResponse.json();
 
-      expect(configData.config.agents["test-agent-update"].description).toBe(
+      expect(composeData.config.agents["test-agent-update"].description).toBe(
         "Updated description",
       );
     });
@@ -146,9 +146,9 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      // Create config for user 1
+      // Create compose for user 1
       mockUserId = "user-1";
-      const request1 = new Request("http://localhost:3000/api/agent/configs", {
+      const request1 = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,9 +160,9 @@ describe("Agent Config Upsert Behavior", () => {
       const data1 = await response1.json();
       expect(response1.status).toBe(201);
 
-      // Create config with same name for user 2 (should succeed)
+      // Create compose with same name for user 2 (should succeed)
       mockUserId = "user-2";
-      const request2 = new Request("http://localhost:3000/api/agent/configs", {
+      const request2 = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -174,16 +174,16 @@ describe("Agent Config Upsert Behavior", () => {
       const data2 = await response2.json();
       expect(response2.status).toBe(201);
 
-      // Should be different config IDs
-      expect(data1.configId).not.toBe(data2.configId);
+      // Should be different compose IDs
+      expect(data1.composeId).not.toBe(data2.composeId);
 
       // Cleanup
       await globalThis.services.db
-        .delete(agentConfigs)
-        .where(eq(agentConfigs.userId, "user-1"));
+        .delete(agentComposes)
+        .where(eq(agentComposes.userId, "user-1"));
       await globalThis.services.db
-        .delete(agentConfigs)
-        .where(eq(agentConfigs.userId, "user-2"));
+        .delete(agentComposes)
+        .where(eq(agentComposes.userId, "user-2"));
 
       // Reset mockUserId
       mockUserId = "test-user-123";
@@ -191,7 +191,7 @@ describe("Agent Config Upsert Behavior", () => {
   });
 
   describe("agent name validation", () => {
-    it("should reject config with multiple agents", async () => {
+    it("should reject compose with multiple agents", async () => {
       const config = {
         version: "1.0",
         agents: {
@@ -208,7 +208,7 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      const request = new Request("http://localhost:3000/api/agent/configs", {
+      const request = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -225,7 +225,7 @@ describe("Agent Config Upsert Behavior", () => {
       );
     });
 
-    it("should reject config with invalid name format", async () => {
+    it("should reject compose with invalid name format", async () => {
       const config = {
         version: "1.0",
         agents: {
@@ -238,7 +238,7 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      const request = new Request("http://localhost:3000/api/agent/configs", {
+      const request = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -265,7 +265,7 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      const request = new Request("http://localhost:3000/api/agent/configs", {
+      const request = new Request("http://localhost:3000/api/agent/composes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -280,17 +280,17 @@ describe("Agent Config Upsert Behavior", () => {
       // Cleanup
       const data = await response.json();
       await globalThis.services.db
-        .delete(agentConfigs)
-        .where(eq(agentConfigs.id, data.configId));
+        .delete(agentComposes)
+        .where(eq(agentComposes.id, data.composeId));
     });
   });
 
-  describe("GET /api/agent/configs/:id", () => {
-    it("should return config with name field", async () => {
+  describe("GET /api/agent/composes/:id", () => {
+    it("should return compose with name field", async () => {
       const config = {
         version: "1.0",
         agents: {
-          "test-get-config": {
+          "test-get-compose": {
             description: "Test",
             image: "vm0-claude-code-dev",
             provider: "claude-code",
@@ -299,9 +299,9 @@ describe("Agent Config Upsert Behavior", () => {
         },
       };
 
-      // Create config
+      // Create compose
       const createRequest = new Request(
-        "http://localhost:3000/api/agent/configs",
+        "http://localhost:3000/api/agent/composes",
         {
           method: "POST",
           headers: {
@@ -314,28 +314,28 @@ describe("Agent Config Upsert Behavior", () => {
       const createResponse = await POST(createRequest as NextRequest);
       const createData = await createResponse.json();
 
-      // Get config
+      // Get compose
       const getRequest = new Request(
-        `http://localhost:3000/api/agent/configs/${createData.configId}`,
+        `http://localhost:3000/api/agent/composes/${createData.composeId}`,
         {
           method: "GET",
         },
       );
 
       const getResponse = await GET(getRequest as NextRequest, {
-        params: Promise.resolve({ id: createData.configId }),
+        params: Promise.resolve({ id: createData.composeId }),
       });
 
       expect(getResponse.status).toBe(200);
       const getData = await getResponse.json();
 
-      expect(getData.name).toBe("test-get-config");
-      expect(getData.config.agents["test-get-config"]).toBeDefined();
+      expect(getData.name).toBe("test-get-compose");
+      expect(getData.config.agents["test-get-compose"]).toBeDefined();
 
       // Cleanup
       await globalThis.services.db
-        .delete(agentConfigs)
-        .where(eq(agentConfigs.id, createData.configId));
+        .delete(agentComposes)
+        .where(eq(agentComposes.id, createData.composeId));
     });
   });
 });

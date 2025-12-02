@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 import { initServices } from "../../../../../src/lib/init-services";
-import { agentConfigs } from "../../../../../src/db/schema/agent-config";
+import { agentComposes } from "../../../../../src/db/schema/agent-compose";
 import { eq } from "drizzle-orm";
 
 // Mock the auth module
@@ -14,7 +14,7 @@ vi.mock("../../../../../src/lib/auth/get-user-id", () => ({
   getUserId: async () => mockUserId,
 }));
 
-describe("GET /api/agent/configs?name=<name>", () => {
+describe("GET /api/agent/composes?name=<name>", () => {
   const testUserId = "test-user-get-by-name";
 
   beforeAll(() => {
@@ -22,14 +22,14 @@ describe("GET /api/agent/configs?name=<name>", () => {
   });
 
   afterAll(async () => {
-    // Cleanup: Delete test configs
+    // Cleanup: Delete test composes
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.userId, testUserId));
+      .delete(agentComposes)
+      .where(eq(agentComposes.userId, testUserId));
   });
 
-  it("should return config when name exists", async () => {
-    // Create a test config
+  it("should return compose when name exists", async () => {
+    // Create a test compose
     const config = {
       version: "1.0",
       agents: {
@@ -43,7 +43,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     };
 
     const createRequest = new Request(
-      "http://localhost:3000/api/agent/configs",
+      "http://localhost:3000/api/agent/composes",
       {
         method: "POST",
         headers: {
@@ -59,7 +59,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
 
     // Now get it by name
     const getRequest = new Request(
-      "http://localhost:3000/api/agent/configs?name=test-get-by-name-success",
+      "http://localhost:3000/api/agent/composes?name=test-get-by-name-success",
       {
         method: "GET",
       },
@@ -69,7 +69,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     const getData = await getResponse.json();
 
     expect(getResponse.status).toBe(200);
-    expect(getData.id).toBe(createData.configId);
+    expect(getData.id).toBe(createData.composeId);
     expect(getData.name).toBe("test-get-by-name-success");
     expect(getData.config.agents["test-get-by-name-success"]).toBeDefined();
     expect(getData.config.agents["test-get-by-name-success"].description).toBe(
@@ -80,13 +80,13 @@ describe("GET /api/agent/configs?name=<name>", () => {
 
     // Cleanup
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.id, createData.configId));
+      .delete(agentComposes)
+      .where(eq(agentComposes.id, createData.composeId));
   });
 
   it("should return 400 when name does not exist", async () => {
     const getRequest = new Request(
-      "http://localhost:3000/api/agent/configs?name=nonexistent-agent",
+      "http://localhost:3000/api/agent/composes?name=nonexistent-agent",
       {
         method: "GET",
       },
@@ -96,12 +96,12 @@ describe("GET /api/agent/configs?name=<name>", () => {
     const getData = await getResponse.json();
 
     expect(getResponse.status).toBe(400);
-    expect(getData.error.message).toContain("Agent config not found");
+    expect(getData.error.message).toContain("Agent compose not found");
     expect(getData.error.message).toContain("nonexistent-agent");
   });
 
   it("should return 400 when name query parameter is missing", async () => {
-    const getRequest = new Request("http://localhost:3000/api/agent/configs", {
+    const getRequest = new Request("http://localhost:3000/api/agent/composes", {
       method: "GET",
     });
 
@@ -112,8 +112,8 @@ describe("GET /api/agent/configs?name=<name>", () => {
     expect(getData.error.message).toContain("Missing name query parameter");
   });
 
-  it("should only return config for authenticated user", async () => {
-    // Create config as user 1
+  it("should only return compose for authenticated user", async () => {
+    // Create compose as user 1
     mockUserId = "user-1-isolation";
     const config = {
       version: "1.0",
@@ -128,7 +128,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     };
 
     const createRequest = new Request(
-      "http://localhost:3000/api/agent/configs",
+      "http://localhost:3000/api/agent/composes",
       {
         method: "POST",
         headers: {
@@ -144,7 +144,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     // Try to get it as user 2
     mockUserId = "user-2-isolation";
     const getRequest = new Request(
-      "http://localhost:3000/api/agent/configs?name=test-user-isolation",
+      "http://localhost:3000/api/agent/composes?name=test-user-isolation",
       {
         method: "GET",
       },
@@ -154,23 +154,23 @@ describe("GET /api/agent/configs?name=<name>", () => {
     const getData = await getResponse.json();
 
     expect(getResponse.status).toBe(400);
-    expect(getData.error.message).toContain("Agent config not found");
+    expect(getData.error.message).toContain("Agent compose not found");
 
     // Cleanup
     mockUserId = "user-1-isolation";
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.userId, "user-1-isolation"));
+      .delete(agentComposes)
+      .where(eq(agentComposes.userId, "user-1-isolation"));
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.userId, "user-2-isolation"));
+      .delete(agentComposes)
+      .where(eq(agentComposes.userId, "user-2-isolation"));
 
     // Reset mockUserId
     mockUserId = "test-user-get-by-name";
   });
 
   it("should handle URL-encoded names correctly", async () => {
-    // Create a test config with hyphens
+    // Create a test compose with hyphens
     const config = {
       version: "1.0",
       agents: {
@@ -184,7 +184,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     };
 
     const createRequest = new Request(
-      "http://localhost:3000/api/agent/configs",
+      "http://localhost:3000/api/agent/composes",
       {
         method: "POST",
         headers: {
@@ -201,7 +201,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
     // Get it with URL-encoded name
     const encodedName = encodeURIComponent("test-agent-with-hyphens");
     const getRequest = new Request(
-      `http://localhost:3000/api/agent/configs?name=${encodedName}`,
+      `http://localhost:3000/api/agent/composes?name=${encodedName}`,
       {
         method: "GET",
       },
@@ -215,7 +215,7 @@ describe("GET /api/agent/configs?name=<name>", () => {
 
     // Cleanup
     await globalThis.services.db
-      .delete(agentConfigs)
-      .where(eq(agentConfigs.id, createData.configId));
+      .delete(agentComposes)
+      .where(eq(agentComposes.id, createData.composeId));
   });
 });
