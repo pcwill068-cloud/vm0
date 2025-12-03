@@ -234,6 +234,16 @@ export class E2BService {
         log.debug(`Using Minimax API (${minimaxBaseUrl})`);
       }
 
+      // Add user-defined environment variables (expanded from ${{ vars.X }} by server)
+      if (context.environment) {
+        for (const [key, value] of Object.entries(context.environment)) {
+          sandboxEnvVars[key] = value;
+        }
+        log.debug(
+          `Added ${Object.keys(context.environment).length} user-defined environment variables`,
+        );
+      }
+
       sandbox = await this.createSandbox(
         sandboxEnvVars,
         agentCompose as AgentComposeYaml | undefined,

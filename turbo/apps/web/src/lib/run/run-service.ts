@@ -18,12 +18,111 @@ import { agentSessionService } from "../agent-session";
 import { e2bService } from "../e2b";
 import type { RunResult } from "../e2b/types";
 import type { AgentComposeYaml } from "../../types/agent-compose";
+import {
+  expandVariables,
+  extractVariableReferences,
+  groupVariablesBySource,
+} from "@vm0/core";
+import { getSecretValues } from "../secrets/secrets-service";
 
 const log = logger("service:run");
 
 /**
+ * Extract and expand environment variables from agent compose config
+ * Expands ${{ vars.xxx }} and ${{ secrets.xxx }} references
+ * @param agentCompose Agent compose configuration
+ * @param templateVars Template variables for expansion
+ * @param userId User ID for fetching secrets
+ * @returns Expanded environment variables or undefined
+ */
+async function expandEnvironmentFromCompose(
+  agentCompose: unknown,
+  templateVars: Record<string, string> | undefined,
+  userId: string,
+): Promise<Record<string, string> | undefined> {
+  const compose = agentCompose as AgentComposeYaml | undefined;
+  if (!compose?.agents) {
+    return undefined;
+  }
+
+  // Get first agent's environment (currently only one agent supported)
+  const agents = Object.values(compose.agents);
+  const firstAgent = agents[0];
+  if (!firstAgent?.environment) {
+    return undefined;
+  }
+
+  const environment = firstAgent.environment;
+
+  // Extract all variable references to determine what we need
+  const refs = extractVariableReferences(environment);
+  const grouped = groupVariablesBySource(refs);
+
+  // Check for unsupported env references
+  if (grouped.env.length > 0) {
+    log.warn(
+      "Environment contains $" +
+        "{{ env.xxx }} references which are not supported: " +
+        grouped.env.map((r) => r.name).join(", "),
+    );
+  }
+
+  // Fetch secrets if needed
+  let secrets: Record<string, string> | undefined;
+  if (grouped.secrets.length > 0) {
+    const secretNames = grouped.secrets.map((r) => r.name);
+    secrets = await getSecretValues(userId, secretNames);
+
+    // Check for missing secrets
+    const missingSecrets = secretNames.filter((name) => !secrets![name]);
+    if (missingSecrets.length > 0) {
+      throw new BadRequestError(
+        `Missing required secrets: ${missingSecrets.join(", ")}. Use 'vm0 secret set <name> <value>' to configure them.`,
+      );
+    }
+  }
+
+  // Build sources for expansion
+  const sources: {
+    vars?: Record<string, string>;
+    secrets?: Record<string, string>;
+  } = {};
+  if (templateVars && Object.keys(templateVars).length > 0) {
+    sources.vars = templateVars;
+  }
+  if (secrets && Object.keys(secrets).length > 0) {
+    sources.secrets = secrets;
+  }
+
+  // If no sources provided and there are vars references, warn
+  if (!sources.vars && grouped.vars.length > 0) {
+    log.warn(
+      "Environment contains $" +
+        "{{ vars.xxx }} but no templateVars provided: " +
+        grouped.vars.map((r) => r.name).join(", "),
+    );
+  }
+
+  // Expand all variables
+  const { result, missingVars } = expandVariables(environment, sources);
+
+  // Check for missing vars (secrets already checked above)
+  const missingVarNames = missingVars
+    .filter((v) => v.source === "vars")
+    .map((v) => v.name);
+  if (missingVarNames.length > 0) {
+    throw new BadRequestError(
+      `Missing required template variables for environment: ${missingVarNames.join(", ")}`,
+    );
+  }
+
+  return result;
+}
+
+/**
  * Intermediate resolution result from checkpoint/session/conversation expansion
  * Contains all data needed to build resumeSession uniformly
+ * Note: Environment is re-expanded server-side from compose + templateVars, not stored in checkpoint
  */
 interface ConversationResolution {
   conversationId: string;
@@ -580,6 +679,13 @@ export class RunService {
       throw new NotFoundError("Agent compose could not be loaded");
     }
 
+    // Step 4: Expand environment variables from compose config using templateVars and secrets
+    const environment = await expandEnvironmentFromCompose(
+      agentCompose,
+      templateVars,
+      params.userId,
+    );
+
     // Build final execution context
     return {
       runId: params.runId,
@@ -592,6 +698,7 @@ export class RunService {
       artifactName,
       artifactVersion,
       volumeVersions,
+      environment,
       resumeSession,
       resumeArtifact,
       // Metadata for vm0_start event

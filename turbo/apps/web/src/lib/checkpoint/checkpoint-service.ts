@@ -79,6 +79,7 @@ export class CheckpointService {
     );
 
     // Build agent compose snapshot using version ID for reproducibility
+    // Environment is re-expanded from templateVars on resume
     const agentComposeSnapshot: AgentComposeSnapshot = {
       agentComposeVersionId: run.agentComposeVersionId,
       templateVars: (run.templateVars as Record<string, string>) || undefined,

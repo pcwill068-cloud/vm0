@@ -118,6 +118,23 @@ class ApiClient {
     return (await response.json()) as GetComposeResponse;
   }
 
+  async getComposeById(id: string): Promise<GetComposeResponse> {
+    const baseUrl = await this.getBaseUrl();
+    const headers = await this.getHeaders();
+
+    const response = await fetch(`${baseUrl}/api/agent/composes/${id}`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = (await response.json()) as ApiError;
+      throw new Error(error.error?.message || `Compose not found: ${id}`);
+    }
+
+    return (await response.json()) as GetComposeResponse;
+  }
+
   /**
    * Resolve a version specifier to a full version ID
    * Supports: "latest", full hash (64 chars), or hash prefix (8+ chars)
@@ -168,6 +185,7 @@ class ApiClient {
   /**
    * Create a run with unified request format
    * Supports new runs, checkpoint resume, and session continue
+   * Note: Environment variables are expanded server-side from templateVars
    */
   async createRun(body: {
     // Shortcuts (mutually exclusive)
@@ -300,6 +318,55 @@ class ApiClient {
       body: options?.body,
     });
   }
+
+  /**
+   * Generic DELETE request
+   */
+  async delete(path: string): Promise<Response> {
+    const baseUrl = await this.getBaseUrl();
+    const token = await getToken();
+    if (!token) {
+      throw new Error("Not authenticated. Run: vm0 auth login");
+    }
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    };
+
+    // Add Vercel bypass secret if available
+    const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    if (bypassSecret) {
+      headers["x-vercel-protection-bypass"] = bypassSecret;
+    }
+
+    return fetch(`${baseUrl}${path}`, {
+      method: "DELETE",
+      headers,
+    });
+  }
+}
+
+/**
+ * Response types for secrets API
+ */
+export interface SecretInfo {
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListSecretsResponse {
+  secrets: SecretInfo[];
+}
+
+export interface SetSecretResponse {
+  name: string;
+  action: "created" | "updated";
+}
+
+export interface DeleteSecretResponse {
+  name: string;
+  deleted: boolean;
 }
 
 export const apiClient = new ApiClient();

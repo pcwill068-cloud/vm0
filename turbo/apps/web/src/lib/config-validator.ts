@@ -1,62 +1,13 @@
-/**
- * Extract all unexpanded environment variable references from a config object
- * Supports ${VAR} syntax
- * @param obj - Config object that may contain unexpanded environment variables
- * @returns Array of unexpanded variable references (with ${} syntax)
- */
-export function extractUnexpandedVars(obj: unknown): string[] {
-  const unexpandedVars = new Set<string>();
-
-  function scan(value: unknown): void {
-    if (typeof value === "string") {
-      const matches = value.matchAll(/\$\{([^}]+)\}/g);
-      for (const match of matches) {
-        unexpandedVars.add(match[0]); // Keep full ${VAR} syntax
-      }
-    } else if (Array.isArray(value)) {
-      for (const item of value) {
-        scan(item);
-      }
-    } else if (value !== null && typeof value === "object") {
-      for (const val of Object.values(value)) {
-        scan(val);
-      }
-    }
-  }
-
-  scan(obj);
-  return Array.from(unexpandedVars);
-}
+import { extractVariableReferences, groupVariablesBySource } from "@vm0/core";
 
 /**
- * Extract all template variable references from a config object
- * Supports {{VAR}} syntax
+ * Extract all ${{ vars.xxx }} template variable references from a config object
+ * Uses core library's unified variable extraction
  * @param obj - Config object that may contain template variables
- * @returns Array of unique template variable names
+ * @returns Array of unique template variable names (just the name, not full syntax)
  */
 export function extractTemplateVars(obj: unknown): string[] {
-  const templateVars = new Set<string>();
-
-  function scan(value: unknown): void {
-    if (typeof value === "string") {
-      const matches = value.matchAll(/\{\{([^}]+)\}\}/g);
-      for (const match of matches) {
-        const varName = match[1];
-        if (varName) {
-          templateVars.add(varName);
-        }
-      }
-    } else if (Array.isArray(value)) {
-      for (const item of value) {
-        scan(item);
-      }
-    } else if (value !== null && typeof value === "object") {
-      for (const val of Object.values(value)) {
-        scan(val);
-      }
-    }
-  }
-
-  scan(obj);
-  return Array.from(templateVars);
+  const refs = extractVariableReferences(obj);
+  const grouped = groupVariablesBySource(refs);
+  return grouped.vars.map((ref) => ref.name);
 }

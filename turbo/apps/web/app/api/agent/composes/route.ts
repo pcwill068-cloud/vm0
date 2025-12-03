@@ -16,7 +16,6 @@ import type {
   AgentComposeYaml,
 } from "../../../../src/types/agent-compose";
 import { eq, and } from "drizzle-orm";
-import { extractUnexpandedVars } from "../../../../src/lib/config-validator";
 import { computeComposeVersionId } from "../../../../src/lib/agent-compose/content-hash";
 
 /**
@@ -155,13 +154,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate that all environment variables are expanded
-    const unexpandedVars = extractUnexpandedVars(content);
-    if (unexpandedVars.length > 0) {
-      throw new BadRequestError(
-        `Configuration contains unexpanded environment variables: ${unexpandedVars.join(", ")}`,
-      );
-    }
+    // Note: Variables like ${{ vars.X }}, ${{ secrets.X }} are stored unexpanded
+    // and will be resolved at run time by the server
 
     // Compute content-addressable version ID
     const versionId = computeComposeVersionId(content);

@@ -14,6 +14,7 @@ export interface CreateAgentRunRequest {
 /**
  * Unified run request - supports all run modes via optional parameters
  * Shortcuts (checkpointId, sessionId) expand to base parameters
+ * Note: Environment variables are expanded server-side from templateVars
  */
 export interface UnifiedRunRequest {
   // High-level shortcuts (mutually exclusive with each other)
@@ -26,7 +27,7 @@ export interface UnifiedRunRequest {
   conversationId?: string; // Conversation to resume from
   artifactName?: string; // Artifact storage name
   artifactVersion?: string; // Artifact version (default: "latest")
-  templateVars?: Record<string, string>; // Template variables
+  templateVars?: Record<string, string>; // Template variables for ${{ vars.xxx }} expansion
   volumeVersions?: Record<string, string>; // Volume name -> version overrides
 
   // Required

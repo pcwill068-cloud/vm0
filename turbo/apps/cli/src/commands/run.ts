@@ -248,7 +248,7 @@ const runCmd = new Command()
           // It's a UUID compose ID - use directly
           composeId = name;
           if (verbose) {
-            console.log(chalk.gray(`  Using compose ID: ${composeId}`));
+            console.log(chalk.gray(`  Using compose ID: ${identifier}`));
           }
         } else {
           // It's an agent name - resolve to compose ID
@@ -334,7 +334,7 @@ const runCmd = new Command()
           ]);
         }
 
-        // 5. Call unified API
+        // 3. Call unified API (server handles all variable expansion)
         const response = await apiClient.createRun({
           // Use agentComposeVersionId if resolved, otherwise use agentComposeId (resolves to HEAD)
           ...(agentComposeVersionId
@@ -352,7 +352,7 @@ const runCmd = new Command()
           conversationId: options.conversation,
         });
 
-        // 6. Poll for events and exit with appropriate code
+        // 4. Poll for events and exit with appropriate code
         const succeeded = await pollEvents(response.runId, timeoutSeconds, {
           verbose,
           startTimestamp,

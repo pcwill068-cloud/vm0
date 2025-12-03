@@ -22,6 +22,7 @@ describe("content-hash", () => {
         agents: {
           "test-agent": {
             image: "test-image",
+            provider: "claude-code",
             working_dir: "/workspace",
           },
         },
@@ -39,6 +40,7 @@ describe("content-hash", () => {
         agents: {
           "my-agent": {
             image: "ubuntu",
+            provider: "claude-code",
             working_dir: "/home",
           },
         },
@@ -49,6 +51,7 @@ describe("content-hash", () => {
         agents: {
           "my-agent": {
             image: "ubuntu",
+            provider: "claude-code",
             working_dir: "/home",
           },
         },
@@ -67,6 +70,7 @@ describe("content-hash", () => {
           agent1: {
             working_dir: "/workspace",
             image: "test",
+            provider: "claude-code",
           },
         },
       } as AgentComposeYaml;
@@ -75,6 +79,7 @@ describe("content-hash", () => {
         agents: {
           agent1: {
             image: "test",
+            provider: "claude-code",
             working_dir: "/workspace",
           },
         },
@@ -92,6 +97,7 @@ describe("content-hash", () => {
         agents: {
           agent1: {
             image: "image-a",
+            provider: "claude-code",
             working_dir: "/workspace",
           },
         },
@@ -102,6 +108,7 @@ describe("content-hash", () => {
         agents: {
           agent1: {
             image: "image-b",
+            provider: "claude-code",
             working_dir: "/workspace",
           },
         },
@@ -118,8 +125,9 @@ describe("content-hash", () => {
         agents: {
           agent1: {
             image: "test",
+            provider: "claude-code",
             working_dir: "/workspace",
-            env: {
+            environment: {
               FOO: "bar",
               BAZ: "qux",
             },
@@ -136,8 +144,9 @@ describe("content-hash", () => {
         agents: {
           agent1: {
             working_dir: "/workspace",
+            provider: "claude-code",
             image: "test",
-            env: {
+            environment: {
               BAZ: "qux",
               FOO: "bar",
             },

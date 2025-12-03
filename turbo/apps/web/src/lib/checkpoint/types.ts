@@ -5,6 +5,7 @@
 /**
  * Agent compose snapshot stored in checkpoint
  * Uses version ID for reproducibility (content-addressed versioning)
+ * Note: Environment is re-expanded from templateVars on resume, not stored
  */
 export interface AgentComposeSnapshot {
   agentComposeVersionId: string; // SHA-256 hash of compose content
