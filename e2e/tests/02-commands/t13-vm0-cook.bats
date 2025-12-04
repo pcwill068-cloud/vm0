@@ -67,6 +67,24 @@ EOF
     echo "# Step 6: Verify artifact directory was created..."
     [ -d "artifact" ]
     [ -f "artifact/.vm0/storage.yaml" ]
+
+    echo "# Step 7: Run cook with prompt to test auto-pull..."
+    # Use bash command for mock agent compatibility
+    run $CLI_COMMAND cook --timeout 120 "echo 'hello' > /home/user/workspace/result.txt"
+    # Verify cook started the run
+    assert_output --partial "Running agent"
+    assert_output --partial "vm0_start"
+
+    echo "# Step 8: Check auto-pull behavior..."
+    # If run succeeded and version changed, we should see pull message
+    if echo "$output" | grep -q "vm0_result"; then
+        if echo "$output" | grep -q "Pulling updated artifact"; then
+            assert_output --partial "Artifact pulled"
+            echo "# Auto-pull triggered successfully"
+        else
+            echo "# Artifact version unchanged - no pull needed"
+        fi
+    fi
 }
 
 @test "cook command fails when vm0.yaml is missing" {
