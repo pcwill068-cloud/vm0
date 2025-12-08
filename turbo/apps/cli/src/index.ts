@@ -8,6 +8,7 @@ import { volumeCommand } from "./commands/volume";
 import { artifactCommand } from "./commands/artifact";
 import { secretCommand } from "./commands/secret";
 import { cookCommand } from "./commands/cook";
+import { imageCommand } from "./commands/image";
 
 const program = new Command();
 
@@ -62,6 +63,7 @@ program.addCommand(volumeCommand);
 program.addCommand(artifactCommand);
 program.addCommand(secretCommand);
 program.addCommand(cookCommand);
+program.addCommand(imageCommand);
 
 export { program };
 
