@@ -12,7 +12,13 @@
  * Track: https://github.com/ts-rest/ts-rest/releases
  */
 export { initContract } from "./base";
-export { apiErrorSchema, type ApiErrorResponse } from "./errors";
+export {
+  apiErrorSchema,
+  ApiError,
+  createErrorResponse,
+  type ApiErrorKey,
+  type ApiErrorResponse,
+} from "./errors";
 export { secretsContract, type SecretsContract } from "./secrets";
 export {
   composesMainContract,
@@ -77,3 +83,22 @@ export {
   type CliAuthTokenContract,
 } from "./cli-auth";
 export { authContract, type AuthContract } from "./auth";
+export {
+  imagesMainContract,
+  imagesByIdContract,
+  imageBuildsContract,
+  buildStatusSchema,
+  imageInfoSchema,
+  createImageRequestSchema,
+  createImageResponseSchema,
+  buildStatusResponseSchema,
+  type ImagesMainContract,
+  type ImagesByIdContract,
+  type ImageBuildsContract,
+} from "./images";
+export {
+  cronCleanupSandboxesContract,
+  cleanupResultSchema,
+  cleanupResponseSchema,
+  type CronCleanupSandboxesContract,
+} from "./cron";
