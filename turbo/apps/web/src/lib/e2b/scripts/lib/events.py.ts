@@ -45,6 +45,7 @@ def send_event(event: Dict[str, Any]) -> bool:
                 # Calculate session history path
                 # Claude Code uses hyphen-separated path encoding
                 # e.g., /home/user/workspace -> -home-user-workspace
+                # Agent runs as E2B default user ('user'), so HOME is /home/user
                 project_name = WORKING_DIR.lstrip("/").replace("/", "-")
                 home_dir = os.environ.get("HOME", "/home/user")
                 session_history_path = f"{home_dir}/.config/claude/projects/-{project_name}/{session_id}.jsonl"

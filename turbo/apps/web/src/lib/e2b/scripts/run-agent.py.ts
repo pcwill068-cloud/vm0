@@ -24,7 +24,7 @@ sys.path.insert(0, "/usr/local/bin/vm0-agent/lib")
 from common import (
     WORKING_DIR, PROMPT, RESUME_SESSION_ID, COMPLETE_URL, RUN_ID,
     EVENT_ERROR_FLAG, HEARTBEAT_URL, HEARTBEAT_INTERVAL, AGENT_LOG_FILE,
-    validate_config
+    PROXY_ENABLED, validate_config
 )
 from log import log_info, log_error, log_warn
 from events import send_event
@@ -58,6 +58,12 @@ def main():
 
     log_info(f"Working directory: {WORKING_DIR}")
 
+    # Log proxy mode status
+    # NOTE: Proxy setup is done as root by e2b-service.ts BEFORE this script starts
+    # This ensures mitmproxy is running and nftables rules are in place
+    if PROXY_ENABLED:
+        log_info("Network security mode enabled (proxy configured by e2b-service)")
+
     # Start heartbeat thread
     heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
     heartbeat_thread.start()
@@ -79,9 +85,11 @@ def main():
         sys.exit(1)
 
     # Set Claude config directory to ensure consistent session history location
+    # Agent runs as E2B default user ('user'), so HOME is /home/user
     home_dir = os.environ.get("HOME", "/home/user")
-    os.environ["CLAUDE_CONFIG_DIR"] = f"{home_dir}/.config/claude"
-    log_info(f"Claude config directory: {os.environ['CLAUDE_CONFIG_DIR']}")
+    claude_config_dir = f"{home_dir}/.config/claude"
+    os.environ["CLAUDE_CONFIG_DIR"] = claude_config_dir
+    log_info(f"Claude config directory: {claude_config_dir}")
 
     # Execute Claude Code with JSONL output
     log_info("Starting Claude Code execution...")

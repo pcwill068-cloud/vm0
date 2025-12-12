@@ -36,6 +36,10 @@ STORAGE_WEBHOOK_URL = f"{API_URL}/api/webhooks/agent/storages"
 INCREMENTAL_WEBHOOK_URL = f"{API_URL}/api/webhooks/agent/storages/incremental"
 HEARTBEAT_URL = f"{API_URL}/api/webhooks/agent/heartbeat"
 TELEMETRY_URL = f"{API_URL}/api/webhooks/agent/telemetry"
+PROXY_URL = f"{API_URL}/api/webhooks/agent/proxy"
+
+# Proxy configuration (for beta_network_security feature)
+PROXY_ENABLED = os.environ.get("VM0_PROXY_ENABLED", "false").lower() == "true"
 
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 60  # seconds
@@ -63,9 +67,13 @@ AGENT_LOG_FILE = f"/tmp/vm0-agent-{RUN_ID}.log"
 # Metrics log file for system resource metrics (JSONL format)
 METRICS_LOG_FILE = f"/tmp/vm0-metrics-{RUN_ID}.jsonl"
 
+# Network log file for proxy request logs (JSONL format)
+NETWORK_LOG_FILE = f"/tmp/vm0-network-{RUN_ID}.jsonl"
+
 # Telemetry position tracking files (to avoid duplicate uploads)
 TELEMETRY_LOG_POS_FILE = f"/tmp/vm0-telemetry-log-pos-{RUN_ID}.txt"
 TELEMETRY_METRICS_POS_FILE = f"/tmp/vm0-telemetry-metrics-pos-{RUN_ID}.txt"
+TELEMETRY_NETWORK_POS_FILE = f"/tmp/vm0-telemetry-network-pos-{RUN_ID}.txt"
 
 # Metrics collection configuration
 METRICS_INTERVAL = 5  # seconds

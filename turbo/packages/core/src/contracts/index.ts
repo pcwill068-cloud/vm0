@@ -41,6 +41,7 @@ export {
   runSystemLogContract,
   runMetricsContract,
   runAgentEventsContract,
+  runNetworkLogsContract,
   runStatusSchema,
   unifiedRunRequestSchema,
   createRunResponseSchema,
@@ -52,6 +53,8 @@ export {
   systemLogResponseSchema,
   metricsResponseSchema,
   agentEventsResponseSchema,
+  networkLogEntrySchema,
+  networkLogsResponseSchema,
   type RunsMainContract,
   type RunsByIdContract,
   type RunEventsContract,
@@ -59,6 +62,7 @@ export {
   type RunSystemLogContract,
   type RunMetricsContract,
   type RunAgentEventsContract,
+  type RunNetworkLogsContract,
 } from "./runs";
 export {
   sessionsMainContract,
@@ -117,3 +121,9 @@ export {
   cleanupResponseSchema,
   type CronCleanupSandboxesContract,
 } from "./cron";
+export {
+  proxyErrorSchema,
+  ProxyErrorCode,
+  type ProxyError,
+  type ProxyErrorCode as ProxyErrorCodeType,
+} from "./proxy";
