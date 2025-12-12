@@ -96,14 +96,15 @@ describe("run command", () => {
         "test-artifact",
       ]);
 
-      // UUID is used directly without fetching compose
-      expect(apiClient.getComposeById).not.toHaveBeenCalled();
+      // UUID still requires fetching compose to get content for secret extraction
+      expect(apiClient.getComposeById).toHaveBeenCalledWith(validUuid);
       expect(apiClient.createRun).toHaveBeenCalledWith({
         agentComposeId: validUuid,
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: undefined,
+        vars: undefined,
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
@@ -167,7 +168,8 @@ describe("run command", () => {
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: undefined,
+        vars: undefined,
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
@@ -416,7 +418,8 @@ describe("run command", () => {
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: { KEY1: "value1" },
+        vars: { KEY1: "value1" },
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
@@ -441,7 +444,8 @@ describe("run command", () => {
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: { KEY1: "value1", KEY2: "value2" },
+        vars: { KEY1: "value1", KEY2: "value2" },
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
@@ -464,7 +468,8 @@ describe("run command", () => {
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: { URL: "https://example.com?foo=bar" },
+        vars: { URL: "https://example.com?foo=bar" },
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
@@ -482,7 +487,7 @@ describe("run command", () => {
           "--vars",
           "EMPTY=",
         ]);
-      }).rejects.toThrow("Invalid variable format: EMPTY=");
+      }).rejects.toThrow("Invalid format: EMPTY=");
     });
 
     it("should reject invalid template variable format (missing value)", async () => {
@@ -515,7 +520,7 @@ describe("run command", () => {
       }).rejects.toThrow();
     });
 
-    it("should omit templateVars when no vars provided", async () => {
+    it("should omit vars when no vars provided", async () => {
       await runCommand.parseAsync([
         "node",
         "cli",
@@ -530,7 +535,8 @@ describe("run command", () => {
         prompt: "test prompt",
         artifactName: "test-artifact",
         artifactVersion: undefined,
-        templateVars: undefined,
+        vars: undefined,
+        secrets: undefined,
         volumeVersions: undefined,
         conversationId: undefined,
       });
