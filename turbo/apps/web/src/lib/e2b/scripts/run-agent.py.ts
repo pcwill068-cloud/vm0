@@ -68,32 +68,39 @@ def main():
     else:
         log_error("API connectivity test: FAILED - webhooks may not work")
 
-    # Force immediate telemetry upload so startup logs are visible even if script crashes
-    log_info("Forcing immediate telemetry upload for startup diagnostics...")
-    from upload_telemetry import upload_telemetry
-    if upload_telemetry():
-        log_info("Startup telemetry upload: SUCCESS")
-    else:
-        log_warn("Startup telemetry upload: FAILED")
+    # Skip startup telemetry upload - it seems to cause hanging
+    # The telemetry upload thread will handle uploads later
+    import sys
+    log_info("Skipping startup telemetry upload (will be handled by background thread)")
 
     # Log proxy mode status
     # NOTE: Proxy setup is done as root by e2b-service.ts BEFORE this script starts
     # This ensures mitmproxy is running and nftables rules are in place
     if PROXY_ENABLED:
         log_info("Network security mode enabled (proxy configured by e2b-service)")
+    else:
+        log_info("Network security mode disabled (direct connections)")
 
     # Start heartbeat thread
+    log_info("Starting heartbeat thread...")
     heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
     heartbeat_thread.start()
     log_info("Heartbeat thread started")
 
     # Start metrics collector thread
+    log_info("Starting metrics collector thread...")
     start_metrics_collector(shutdown_event)
     log_info("Metrics collector thread started")
 
     # Start telemetry upload thread
+    log_info("Starting telemetry upload thread...")
     start_telemetry_upload(shutdown_event)
     log_info("Telemetry upload thread started")
+
+    # Flush stderr to ensure all startup logs are written
+    # Telemetry upload thread will handle sending them
+    sys.stderr.flush()
+    log_info("Startup phase complete, proceeding to Claude execution")
 
     # Change to working directory
     try:
