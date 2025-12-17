@@ -23,6 +23,7 @@ import sys
 import subprocess
 import json
 import threading
+import time
 
 # Add lib to path for imports
 sys.path.insert(0, "/usr/local/bin/vm0-agent/lib")
@@ -62,6 +63,8 @@ def _cleanup(exit_code: int, error_message: str):
     Cleanup and notify server.
     This function is called in the finally block to ensure it always runs.
     """
+    log_info("▷ Cleanup")
+
     # Perform final telemetry upload before completion
     # This ensures all remaining data is captured
     try:
@@ -92,6 +95,12 @@ def _cleanup(exit_code: int, error_message: str):
     shutdown_event.set()
     log_info("Heartbeat thread stopped")
 
+    # Log final status
+    if exit_code == 0:
+        log_info("✓ Sandbox finished successfully")
+    else:
+        log_info(f"✗ Sandbox failed (exit code {exit_code})")
+
 
 def _run() -> tuple[int, str]:
     """
@@ -101,6 +110,13 @@ def _run() -> tuple[int, str]:
     """
     # Validate configuration - raises ValueError if invalid
     validate_config()
+
+    # Lifecycle: Header
+    log_info(f"▶ VM0 Sandbox {RUN_ID}")
+
+    # Lifecycle: Initialization
+    log_info("▷ Initialization")
+    init_start_time = time.time()
 
     log_info(f"Working directory: {WORKING_DIR}")
 
@@ -137,6 +153,13 @@ def _run() -> tuple[int, str]:
     claude_config_dir = f"{home_dir}/.config/claude"
     os.environ["CLAUDE_CONFIG_DIR"] = claude_config_dir
     log_info(f"Claude config directory: {claude_config_dir}")
+
+    init_duration = int(time.time() - init_start_time)
+    log_info(f"✓ Initialization complete ({init_duration}s)")
+
+    # Lifecycle: Execution
+    log_info("▷ Execution")
+    exec_start_time = time.time()
 
     # Execute Claude Code with JSONL output
     log_info("Starting Claude Code execution...")
@@ -256,12 +279,31 @@ def _run() -> tuple[int, str]:
         final_exit_code = 1
         error_message = "Some events failed to send"
 
+    # Log execution result
+    exec_duration = int(time.time() - exec_start_time)
+    if claude_exit_code == 0 and final_exit_code == 0:
+        log_info(f"✓ Execution complete ({exec_duration}s)")
+    else:
+        log_info(f"✗ Execution failed ({exec_duration}s)")
+
     # Handle completion
     if claude_exit_code == 0 and final_exit_code == 0:
         log_info("Claude Code completed successfully")
 
+        # Lifecycle: Checkpoint
+        log_info("▷ Checkpoint")
+        checkpoint_start_time = time.time()
+
         # Create checkpoint - this is mandatory for successful runs
-        if not create_checkpoint():
+        checkpoint_success = create_checkpoint()
+        checkpoint_duration = int(time.time() - checkpoint_start_time)
+
+        if checkpoint_success:
+            log_info(f"✓ Checkpoint complete ({checkpoint_duration}s)")
+        else:
+            log_info(f"✗ Checkpoint failed ({checkpoint_duration}s)")
+
+        if not checkpoint_success:
             log_error("Checkpoint creation failed, marking run as failed")
             final_exit_code = 1
             error_message = "Checkpoint creation failed"
