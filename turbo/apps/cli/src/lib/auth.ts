@@ -1,5 +1,11 @@
 import chalk from "chalk";
-import { saveConfig, clearConfig, loadConfig, getApiUrl } from "./config";
+import {
+  saveConfig,
+  clearConfig,
+  loadConfig,
+  getApiUrl,
+  getToken,
+} from "./config";
 
 /**
  * Build headers with optional Vercel bypass secret
@@ -177,4 +183,22 @@ export async function checkAuthStatus(): Promise<void> {
   if (process.env.VM0_TOKEN) {
     console.log(chalk.blue("Using token from VM0_TOKEN environment variable"));
   }
+}
+
+export async function setupToken(): Promise<void> {
+  const token = await getToken();
+
+  if (!token) {
+    console.error(chalk.red("Error: Not authenticated."));
+    console.error("");
+    console.error("To get a token for CI/CD:");
+    console.error("  1. Run 'vm0 auth login' to authenticate");
+    console.error("  2. Run 'vm0 auth setup-token' to get your token");
+    console.error(
+      "  3. Store the token in your CI/CD secrets (e.g., VM0_TOKEN)",
+    );
+    process.exit(1);
+  }
+
+  console.log(token);
 }
