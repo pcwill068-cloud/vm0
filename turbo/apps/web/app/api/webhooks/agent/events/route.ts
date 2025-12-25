@@ -3,14 +3,18 @@ import { TsRestResponse } from "@ts-rest/serverless";
 import { webhookEventsContract } from "@vm0/core";
 import { initServices } from "../../../../../src/lib/init-services";
 import { agentRuns } from "../../../../../src/db/schema/agent-run";
-import { agentRunEvents } from "../../../../../src/db/schema/agent-run-event";
-import { eq, max, and } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getSandboxAuthForRun } from "../../../../../src/lib/auth/get-sandbox-auth";
 import {
   createSecretMasker,
   decryptSecrets,
 } from "../../../../../src/lib/crypto";
 import { logger } from "../../../../../src/lib/logger";
+import {
+  ingestToAxiom,
+  getDatasetName,
+  DATASETS,
+} from "../../../../../src/lib/axiom";
 
 const log = logger("webhook:events");
 
@@ -54,14 +58,6 @@ const router = tsr.router(webhookEventsContract, {
       };
     }
 
-    // Get the last sequence number for this run
-    const [lastEvent] = await globalThis.services.db
-      .select({ maxSeq: max(agentRunEvents.sequenceNumber) })
-      .from(agentRunEvents)
-      .where(eq(agentRunEvents.runId, body.runId));
-
-    const lastSequence = lastEvent?.maxSeq ?? 0;
-
     // Get secrets from run record and create masker for protecting sensitive data
     // Secrets are stored encrypted per-value in the run record
     let secretValues: string[] = [];
@@ -72,22 +68,27 @@ const router = tsr.router(webhookEventsContract, {
     }
     const masker = createSecretMasker(secretValues);
 
-    // Prepare events for insertion with secrets masked
-    const eventsToInsert = body.events.map((event, index) => ({
+    // Prepare events for Axiom ingest with secrets masked
+    // Use client-provided sequenceNumber from each event
+    const axiomEvents = body.events.map((event) => ({
       runId: body.runId,
-      sequenceNumber: lastSequence + index + 1,
+      userId,
+      sequenceNumber: event.sequenceNumber,
       eventType: event.type,
       eventData: masker.mask(event),
     }));
 
-    // Insert events in batch
-    await globalThis.services.db.insert(agentRunEvents).values(eventsToInsert);
+    // Ingest events to Axiom
+    const axiomDataset = getDatasetName(DATASETS.AGENT_RUN_EVENTS);
+    await ingestToAxiom(axiomDataset, axiomEvents);
 
-    const firstSequence = lastSequence + 1;
-    const lastInsertedSequence = lastSequence + body.events.length;
+    // Get first and last sequence numbers from the events
+    // Note: events array is validated as non-empty by the contract
+    const firstSequence = body.events[0]!.sequenceNumber;
+    const lastSequence = body.events[body.events.length - 1]!.sequenceNumber;
 
     log.debug(
-      `Stored events ${firstSequence}-${lastInsertedSequence} for run ${body.runId}`,
+      `Ingested events ${firstSequence}-${lastSequence} to Axiom for run ${body.runId}`,
     );
 
     return {
@@ -95,7 +96,7 @@ const router = tsr.router(webhookEventsContract, {
       body: {
         received: body.events.length,
         firstSequence,
-        lastSequence: lastInsertedSequence,
+        lastSequence,
       },
     };
   },
