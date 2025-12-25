@@ -8,6 +8,7 @@ const mockDebug = vi.fn();
 const mockInfo = vi.fn();
 const mockWarn = vi.fn();
 const mockError = vi.fn();
+const mockFlush = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@axiomhq/logging", () => ({
   Logger: vi.fn().mockImplementation(() => ({
@@ -15,6 +16,7 @@ vi.mock("@axiomhq/logging", () => ({
     info: mockInfo,
     warn: mockWarn,
     error: mockError,
+    flush: mockFlush,
   })),
   AxiomJSTransport: vi.fn(),
 }));
@@ -33,7 +35,7 @@ vi.mock("../axiom/datasets", () => ({
 }));
 
 // Import after mocks
-import { logger, clearLoggerCache } from "../logger";
+import { logger, clearLoggerCache, flushLogs } from "../logger";
 
 describe("logger", () => {
   const originalEnv = { ...process.env };
@@ -47,7 +49,7 @@ describe("logger", () => {
   beforeEach(() => {
     // Reset environment
     process.env = { ...originalEnv };
-    process.env.NODE_ENV = "test";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "test";
     delete process.env.DEBUG;
     delete process.env.AXIOM_TOKEN;
 
@@ -153,7 +155,8 @@ describe("logger", () => {
     });
 
     it("should auto-enable debug in development mode", () => {
-      process.env.NODE_ENV = "development";
+      (process.env as Record<string, string | undefined>).NODE_ENV =
+        "development";
       clearLoggerCache();
 
       const log = logger("test");
@@ -283,6 +286,29 @@ describe("logger", () => {
       log.info(123);
 
       expect(mockInfo).toHaveBeenCalledWith("123", { context: "test" });
+    });
+  });
+
+  describe("flushLogs", () => {
+    it("should call flush on Axiom logger when configured", async () => {
+      process.env.AXIOM_TOKEN = "test-token";
+      clearLoggerCache();
+
+      // Trigger logger initialization
+      const log = logger("test");
+      log.info("trigger init");
+
+      await flushLogs();
+
+      expect(mockFlush).toHaveBeenCalled();
+    });
+
+    it("should not throw when Axiom is not configured", async () => {
+      delete process.env.AXIOM_TOKEN;
+      clearLoggerCache();
+
+      // Should not throw
+      await expect(flushLogs()).resolves.toBeUndefined();
     });
   });
 });
