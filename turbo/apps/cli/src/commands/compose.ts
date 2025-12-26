@@ -198,21 +198,25 @@ export const composeCommand = new Command()
         content: config,
       });
 
+      // Get user's scope for display (must exist if compose succeeded)
+      const scopeResponse = await apiClient.getScope();
+
       // 6. Display result
       const shortVersionId = response.versionId.slice(0, 8);
+      const displayName = `${scopeResponse.slug}/${response.name}`;
+
       if (response.action === "created") {
-        console.log(chalk.green(`✓ Compose created: ${response.name}`));
+        console.log(chalk.green(`✓ Compose created: ${displayName}`));
       } else {
-        console.log(chalk.green(`✓ Compose version exists: ${response.name}`));
+        console.log(chalk.green(`✓ Compose version exists: ${displayName}`));
       }
 
-      console.log(chalk.dim(`  Compose ID: ${response.composeId}`));
-      console.log(chalk.dim(`  Version:    ${shortVersionId}`));
+      console.log(chalk.dim(`  Version: ${shortVersionId}`));
       console.log();
       console.log("  Run your agent:");
       console.log(
         chalk.cyan(
-          `    vm0 run ${response.name} --artifact-name <artifact> "your prompt"`,
+          `    vm0 run ${displayName}:${shortVersionId} --artifact-name <artifact> "your prompt"`,
         ),
       );
     } catch (error) {
