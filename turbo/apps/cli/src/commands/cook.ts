@@ -403,11 +403,14 @@ cookCmd
           // Check if already initialized
           const existingConfig = await readStorageConfig(volumeDir);
           if (!existingConfig) {
-            printCommand("vm0 volume init");
-            await execVm0Command(["volume", "init"], {
-              cwd: volumeDir,
-              silent: true,
-            });
+            printCommand(`vm0 volume init --name ${volumeConfig.name}`);
+            await execVm0Command(
+              ["volume", "init", "--name", volumeConfig.name],
+              {
+                cwd: volumeDir,
+                silent: true,
+              },
+            );
           }
 
           // Push volume
@@ -446,8 +449,8 @@ cookCmd
       // Check if already initialized
       const existingConfig = await readStorageConfig(artifactDir);
       if (!existingConfig) {
-        printCommand("vm0 artifact init");
-        await execVm0Command(["artifact", "init"], {
+        printCommand(`vm0 artifact init --name ${ARTIFACT_DIR}`);
+        await execVm0Command(["artifact", "init", "--name", ARTIFACT_DIR], {
           cwd: artifactDir,
           silent: true,
         });

@@ -6,11 +6,16 @@ import {
   writeStorageConfig,
   readStorageConfig,
 } from "../../lib/storage-utils";
+import { promptText, isInteractive } from "../../lib/prompt-utils";
 
 export const initCommand = new Command()
   .name("init")
   .description("Initialize an artifact in the current directory")
-  .action(async () => {
+  .option(
+    "-n, --name <name>",
+    "Artifact name (required in non-interactive mode)",
+  )
+  .action(async (options: { name?: string }) => {
     try {
       const cwd = process.cwd();
       const dirName = path.basename(cwd);
@@ -42,12 +47,47 @@ export const initCommand = new Command()
         return;
       }
 
-      // Use directory name as artifact name
-      const artifactName = dirName;
+      // Determine artifact name
+      let artifactName: string;
+
+      if (options.name) {
+        // Use provided name (non-interactive mode)
+        artifactName = options.name;
+      } else if (!isInteractive()) {
+        // Non-interactive mode without --name flag
+        console.error(
+          chalk.red("✗ --name flag is required in non-interactive mode"),
+        );
+        console.error(
+          chalk.dim("  Usage: vm0 artifact init --name <artifact-name>"),
+        );
+        process.exit(1);
+      } else {
+        // Interactive prompt with directory name as default
+        const defaultName = isValidStorageName(dirName) ? dirName : undefined;
+        const name = await promptText(
+          "Enter artifact name",
+          defaultName,
+          (value: string) => {
+            if (!isValidStorageName(value)) {
+              return "Must be 3-64 characters, lowercase alphanumeric with hyphens";
+            }
+            return true;
+          },
+        );
+
+        if (name === undefined) {
+          // User cancelled
+          console.log(chalk.dim("Cancelled"));
+          return;
+        }
+
+        artifactName = name;
+      }
 
       // Validate name
       if (!isValidStorageName(artifactName)) {
-        console.error(chalk.red(`✗ Invalid artifact name: "${dirName}"`));
+        console.error(chalk.red(`✗ Invalid artifact name: "${artifactName}"`));
         console.error(
           chalk.dim(
             "  Artifact names must be 3-64 characters, lowercase alphanumeric with hyphens",

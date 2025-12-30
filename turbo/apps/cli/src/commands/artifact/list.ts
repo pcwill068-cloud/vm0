@@ -1,0 +1,84 @@
+import { Command } from "commander";
+import chalk from "chalk";
+import { apiClient, type ApiError } from "../../lib/api-client";
+import { formatBytes, formatRelativeTime } from "../../lib/file-utils";
+
+/**
+ * List response from /api/storages/list
+ */
+interface StorageListItem {
+  name: string;
+  size: number;
+  fileCount: number;
+  updatedAt: string;
+}
+
+export const listCommand = new Command()
+  .name("list")
+  .alias("ls")
+  .description("List all remote artifacts")
+  .action(async () => {
+    try {
+      // Call API
+      const url = "/api/storages/list?type=artifact";
+      const response = await apiClient.get(url);
+
+      if (!response.ok) {
+        const error = (await response.json()) as ApiError;
+        throw new Error(error.error?.message || "List failed");
+      }
+
+      const items = (await response.json()) as StorageListItem[];
+
+      if (items.length === 0) {
+        console.log(chalk.dim("No artifacts found"));
+        console.log(
+          chalk.dim(
+            "  Create one with: vm0 artifact init && vm0 artifact push",
+          ),
+        );
+        return;
+      }
+
+      // Calculate column widths
+      const nameWidth = Math.max(4, ...items.map((i) => i.name.length));
+      const sizeWidth = Math.max(
+        4,
+        ...items.map((i) => formatBytes(i.size).length),
+      );
+      const filesWidth = Math.max(
+        5,
+        ...items.map((i) => i.fileCount.toString().length),
+      );
+
+      // Print header
+      const header = [
+        "NAME".padEnd(nameWidth),
+        "SIZE".padStart(sizeWidth),
+        "FILES".padStart(filesWidth),
+        "UPDATED",
+      ].join("  ");
+      console.log(chalk.dim(header));
+
+      // Print rows
+      for (const item of items) {
+        const row = [
+          item.name.padEnd(nameWidth),
+          formatBytes(item.size).padStart(sizeWidth),
+          item.fileCount.toString().padStart(filesWidth),
+          formatRelativeTime(item.updatedAt),
+        ].join("  ");
+        console.log(row);
+      }
+    } catch (error) {
+      console.error(chalk.red("✗ Failed to list artifacts"));
+      if (error instanceof Error) {
+        if (error.message.includes("Not authenticated")) {
+          console.error(chalk.dim("  Run: vm0 auth login"));
+        } else {
+          console.error(chalk.dim(`  ${error.message}`));
+        }
+      }
+      process.exit(1);
+    }
+  });
