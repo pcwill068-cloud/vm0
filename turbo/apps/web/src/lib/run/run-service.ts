@@ -16,8 +16,6 @@ import type {
 } from "../checkpoint/types";
 import { agentSessionService } from "../agent-session";
 import { sessionHistoryService } from "../session-history";
-import { e2bService } from "../e2b";
-import type { RunResult } from "../e2b/types";
 import type { AgentComposeYaml } from "../../types/agent-compose";
 import {
   expandVariables,
@@ -25,6 +23,10 @@ import {
   groupVariablesBySource,
 } from "@vm0/core";
 import { createProxyToken } from "../proxy/token-service";
+import { prepareForExecution } from "./context/execution-preparer";
+import { e2bExecutor } from "./executors/e2b-executor";
+import { runnerExecutor } from "./executors/runner-executor";
+import type { ExecutorResult, PreparedContext } from "./executors/types";
 
 const log = logger("service:run");
 
@@ -872,17 +874,41 @@ export class RunService {
   }
 
   /**
-   * Execute an agent run with the given context
-   * Delegates to e2b-service for actual execution
+   * Prepare execution context and dispatch to appropriate executor
    *
-   * @param context Execution context (new run or resume)
-   * @returns Run result
+   * This is the new unified entry point that handles both E2B and runner paths:
+   * 1. Prepares the execution context (storage manifest, working dir, etc.)
+   * 2. Routes to the appropriate executor based on runner group config
+   *
+   * @param context ExecutionContext built by buildExecutionContext()
+   * @returns ExecutorResult with status and optional sandboxId
    */
-  async executeRun(context: ExecutionContext): Promise<RunResult> {
-    log.debug(
-      `Executing run ${context.runId} (resume: ${!!context.resumeSession})`,
-    );
-    return await e2bService.execute(context);
+  async prepareAndDispatch(context: ExecutionContext): Promise<ExecutorResult> {
+    log.debug(`Preparing and dispatching run ${context.runId}...`);
+
+    // Layer 1: Prepare context (storage manifest, working dir, etc.)
+    const preparedContext = await prepareForExecution(context);
+
+    // Layer 2: Dispatch to appropriate executor
+    return await this.dispatch(preparedContext);
+  }
+
+  /**
+   * Dispatch prepared context to appropriate executor
+   *
+   * @param context PreparedContext ready for execution
+   * @returns ExecutorResult with status and optional sandboxId
+   */
+  async dispatch(context: PreparedContext): Promise<ExecutorResult> {
+    if (context.runnerGroup) {
+      log.debug(
+        `Dispatching run ${context.runId} to runner group: ${context.runnerGroup}`,
+      );
+      return await runnerExecutor.execute(context);
+    } else {
+      log.debug(`Dispatching run ${context.runId} to E2B executor`);
+      return await e2bExecutor.execute(context);
+    }
   }
 }
 
