@@ -17,6 +17,11 @@ import {
   checkNetworkPrerequisites,
   setupBridge,
 } from "../lib/firecracker/network.js";
+import {
+  initProxyManager,
+  initVMRegistry,
+  getProxyManager,
+} from "../lib/proxy/index.js";
 
 // Track active jobs for concurrency management
 const activeJobs = new Set<string>();
@@ -121,6 +126,32 @@ export const startCommand = new Command("start")
       // Set up bridge network
       console.log("Setting up network bridge...");
       await setupBridge();
+
+      // Initialize proxy for network security mode
+      // The proxy is always started but only used when experimentalNetworkSecurity is enabled
+      console.log("Initializing network proxy...");
+      initVMRegistry();
+      const proxyManager = initProxyManager({
+        apiUrl: config.server.url,
+        port: config.proxy.port,
+      });
+
+      // Try to start proxy - if mitmproxy is not installed, continue without it
+      // Note: Per-VM iptables rules are set up in executor.ts when a job with
+      // experimentalNetworkSecurity is executed, not globally here.
+      let proxyEnabled = false;
+      try {
+        await proxyManager.start();
+        proxyEnabled = true;
+        console.log("Network proxy initialized successfully");
+      } catch (err) {
+        console.warn(
+          `Network proxy not available: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
+        console.warn(
+          "Jobs with experimentalNetworkSecurity enabled will run without network interception",
+        );
+      }
 
       // Status file for external monitoring (Ansible drain support)
       const statusFilePath = join(dirname(options.config), "status.json");
@@ -264,6 +295,12 @@ export const startCommand = new Command("start")
           `Waiting for ${jobPromises.size} active job(s) to complete...`,
         );
         await Promise.all(jobPromises);
+      }
+
+      // Cleanup proxy
+      if (proxyEnabled) {
+        console.log("Stopping network proxy...");
+        await getProxyManager().stop();
       }
 
       // Final status update
