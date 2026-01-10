@@ -1,6 +1,7 @@
 import type { StorageManifest } from "../../storage/types";
 import type { ResumeSession } from "../types";
 import type { ArtifactSnapshot } from "../../checkpoint/types";
+import type { ExperimentalFirewall } from "@vm0/core";
 
 /**
  * Prepared execution context for executors
@@ -38,8 +39,8 @@ export interface PreparedContext {
   artifactName: string | null;
   artifactVersion: string | null;
 
-  // Network security mode
-  experimentalNetworkSecurity: boolean;
+  // Experimental firewall configuration
+  experimentalFirewall: ExperimentalFirewall | null;
 
   // Routing hint (null = E2B, string = runner group)
   runnerGroup: string | null;

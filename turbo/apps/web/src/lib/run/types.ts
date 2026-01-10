@@ -1,4 +1,5 @@
 import type { ArtifactSnapshot } from "../checkpoint/types";
+import type { ExperimentalFirewall } from "@vm0/core";
 
 /**
  * Run status values
@@ -67,9 +68,8 @@ export interface ExecutionContext {
   // Uses vars and secrets to resolve ${{ vars.xxx }} and ${{ secrets.xxx }} references
   environment?: Record<string, string>;
 
-  // Network security mode - when true, secrets are encrypted into proxy tokens
-  // and traffic is routed through mitmproxy -> VM0 Proxy for decryption
-  experimentalNetworkSecurity?: boolean;
+  // Experimental firewall configuration for network egress control
+  experimentalFirewall?: ExperimentalFirewall;
 
   // Resume-specific (optional)
   resumeSession?: ResumeSession;
