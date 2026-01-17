@@ -2,12 +2,8 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { existsSync, readFileSync } from "fs";
 import { parse as parseYaml } from "yaml";
-import { apiClient, type ApiError } from "../../lib/api/api-client";
-import {
-  scheduleYamlSchema,
-  type ScheduleDefinition,
-  type DeployScheduleResponse,
-} from "@vm0/core";
+import { apiClient } from "../../lib/api/api-client";
+import { scheduleYamlSchema, type ScheduleDefinition } from "@vm0/core";
 import { toISODateTime } from "../../lib/domain/schedule-utils";
 
 /**
@@ -168,16 +164,7 @@ export const deployCommand = new Command()
       };
 
       // Call API
-      const response = await apiClient.post("/api/agent/schedules", {
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = (await response.json()) as ApiError;
-        throw new Error(error.error?.message || "Deploy failed");
-      }
-
-      const deployResult = (await response.json()) as DeployScheduleResponse;
+      const deployResult = await apiClient.deploySchedule(body);
 
       // Display result
       if (deployResult.created) {
