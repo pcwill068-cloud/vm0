@@ -114,9 +114,6 @@ RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --
     && apt-get install -y 1password-cli \
     && rm -rf /var/lib/apt/lists/*
 
-# Install TypeScript tooling for IDE/editor support
-RUN npm install -g typescript typescript-language-server
-
 # Install agent-browser for browser automation
 RUN npm install -g agent-browser \
     && agent-browser install --with-deps
