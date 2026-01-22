@@ -1,10 +1,7 @@
 import { createEnv } from "@t3-oss/env-nextjs";
-import { config } from "dotenv";
 import { z } from "zod";
 
 function initEnv() {
-  config({ path: "./.env" });
-
   return createEnv({
     server: {
       DATABASE_URL: z.string().min(1),
@@ -68,3 +65,7 @@ export function env() {
 
 // Export type for type inference
 export type Env = ReturnType<typeof env>;
+
+export function reloadEnv() {
+  _env = initEnv();
+}
