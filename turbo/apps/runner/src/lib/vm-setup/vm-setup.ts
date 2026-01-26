@@ -140,21 +140,3 @@ export async function installProxyCA(
   await guest.execOrThrow("sudo update-ca-certificates");
   console.log(`[Executor] Proxy CA certificate installed successfully`);
 }
-
-/**
- * Configure DNS in the VM
- * Systemd-resolved may overwrite /etc/resolv.conf at boot,
- * so we need to ensure DNS servers are configured after the VM is ready.
- * Requires sudo since we're connected as 'user', not root.
- */
-export async function configureDNS(guest: GuestClient): Promise<void> {
-  // Remove any symlink and write static DNS configuration
-  // Use sudo since /etc/resolv.conf requires root access
-  const dnsConfig = `nameserver 8.8.8.8
-nameserver 8.8.4.4
-nameserver 1.1.1.1`;
-
-  await guest.execOrThrow(
-    `sudo sh -c 'rm -f /etc/resolv.conf && echo "${dnsConfig}" > /etc/resolv.conf'`,
-  );
-}
