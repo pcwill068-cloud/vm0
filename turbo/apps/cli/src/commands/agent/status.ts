@@ -72,7 +72,7 @@ function formatVolumes(
 }
 
 /**
- * Format secrets and vars with source information
+ * Format secrets, vars, and credentials with source information
  */
 function formatVariableSources(sources: AgentVariableSources): void {
   if (sources.secrets.length > 0) {
@@ -87,6 +87,13 @@ function formatVariableSources(sources: AgentVariableSources): void {
     for (const v of sources.vars) {
       const sourceInfo = chalk.dim(`(${v.source})`);
       console.log(`      - ${v.name.padEnd(20)} ${sourceInfo}`);
+    }
+  }
+  if (sources.credentials.length > 0) {
+    console.log(`    Credentials:`);
+    for (const cred of sources.credentials) {
+      const sourceInfo = chalk.dim(`(${cred.source})`);
+      console.log(`      - ${cred.name.padEnd(20)} ${sourceInfo}`);
     }
   }
 }
@@ -219,20 +226,21 @@ export const statusCommand = new Command()
 
         const content = compose.content as AgentComposeContent;
 
-        // Derive variable sources if --no-sources flag is not set
-        // Default: sources = true (enabled), --no-sources sets it to false
+        // Derive variable sources
+        // --no-sources: skip network (skill downloads), but still extract variables
+        // Without flag: fetch skills to determine variable sources
         let variableSources: Map<string, AgentVariableSources> | undefined;
-        if (options.sources !== false) {
-          try {
-            variableSources = await deriveComposeVariableSources(content);
-          } catch {
-            // Failed to derive sources, show warning and continue without them
-            console.error(
-              chalk.yellow(
-                "⚠ Warning: Failed to fetch skill sources, showing basic info",
-              ),
-            );
-          }
+        try {
+          variableSources = await deriveComposeVariableSources(content, {
+            skipNetwork: options.sources === false,
+          });
+        } catch {
+          // Failed to derive sources, show warning and continue without them
+          console.error(
+            chalk.yellow(
+              "⚠ Warning: Failed to fetch skill sources, showing basic info",
+            ),
+          );
         }
 
         // Format and display the compose
