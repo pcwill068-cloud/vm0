@@ -758,6 +758,13 @@ function displayDeployResult(
     );
     console.log(chalk.dim(`  At: ${atTimeFormatted}`));
   }
+
+  if (deployResult.created) {
+    console.log();
+    console.log(
+      `  To activate: ${chalk.cyan(`vm0 schedule enable ${agentName}`)}`,
+    );
+  }
 }
 
 export const setupCommand = new Command()
