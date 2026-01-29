@@ -1,5 +1,12 @@
 import { initClient } from "@ts-rest/core";
-import { runsMainContract, runEventsContract } from "@vm0/core";
+import {
+  runsMainContract,
+  runEventsContract,
+  runsCancelContract,
+  type RunsListResponse,
+  type CancelRunResponse,
+  type RunStatus,
+} from "@vm0/core";
 import { getClientConfig, handleError } from "../core/client-factory";
 import type { CreateRunResponse, GetEventsResponse } from "../core/types";
 
@@ -60,4 +67,46 @@ export async function getEvents(
   }
 
   handleError(result, "Failed to fetch events");
+}
+
+/**
+ * List runs with optional status filter
+ */
+export async function listRuns(params?: {
+  status?: RunStatus;
+  limit?: number;
+}): Promise<RunsListResponse> {
+  const config = await getClientConfig();
+  const client = initClient(runsMainContract, config);
+
+  const result = await client.list({
+    query: {
+      status: params?.status,
+      limit: params?.limit ?? 50,
+    },
+  });
+
+  if (result.status === 200) {
+    return result.body;
+  }
+
+  handleError(result, "Failed to list runs");
+}
+
+/**
+ * Cancel (kill) a run
+ */
+export async function cancelRun(runId: string): Promise<CancelRunResponse> {
+  const config = await getClientConfig();
+  const client = initClient(runsCancelContract, config);
+
+  const result = await client.cancel({
+    params: { id: runId },
+  });
+
+  if (result.status === 200) {
+    return result.body;
+  }
+
+  handleError(result, "Failed to cancel run");
 }
