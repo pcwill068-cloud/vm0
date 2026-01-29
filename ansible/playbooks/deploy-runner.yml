@@ -209,7 +209,7 @@
         mode: '0755'
       tags: [prepare]
 
-    - name: Copy deploy scripts and vsock-agent binary
+    - name: Copy deploy scripts and vm-init binary
       copy:
         src: "{{ item }}"
         dest: "{{ runner_base_dir }}/deploy-runner/"
@@ -218,7 +218,7 @@
         mode: '0755'
       with_fileglob:
         - "{{ playbook_dir }}/../../turbo/apps/runner/scripts/deploy/*.sh"
-        - "{{ playbook_dir }}/../../crates/target/aarch64-unknown-linux-musl/release/vsock-agent"
+        - "{{ playbook_dir }}/../../crates/target/aarch64-unknown-linux-musl/release/vm-init"
       tags: [prepare]
 
     - name: Copy rootfs build files
@@ -276,11 +276,11 @@
       tags: [prepare]
 
     # Calculate hash of all files that affect rootfs content
-    # Must match files copied above: Dockerfile, *.sh, vsock-agent (binary), *.mjs
+    # Must match files copied above: Dockerfile, *.sh, vm-init (binary), *.mjs
     - name: Calculate rootfs build inputs hash
       shell: |
         find "{{ runner_base_dir }}/deploy-runner/" \
-          \( -name "Dockerfile" -o -name "*.sh" -o -name "vsock-agent" -o -name "*.mjs" \) \
+          \( -name "Dockerfile" -o -name "*.sh" -o -name "vm-init" -o -name "*.mjs" \) \
           -type f -print0 | sort -z | xargs -0 cat | sha256sum | cut -d' ' -f1
       args:
         executable: /bin/bash
@@ -306,17 +306,21 @@
           }}
       tags: [prepare]
 
-    - name: Build rootfs with retry on cache failure
+    - name: Build rootfs with cleanup on failure
       when: rootfs_needs_rebuild
       tags: [prepare]
       block:
         - name: Build rootfs
           command: "{{ runner_base_dir }}/deploy-runner/build-rootfs.sh {{ rootfs_path }}"
       rescue:
-        - name: Clear Docker buildkit cache after failure
-          command: docker builder prune -f
+        - name: Remove old rootfs containers
+          shell: docker rm -f $(docker ps -aq --filter "name=vm0-rootfs") 2>/dev/null || true
+          changed_when: false
 
-        - name: Retry rootfs build after cache cleanup
+        - name: Clean up unused Docker resources
+          command: docker system prune -af --volumes
+
+        - name: Retry rootfs build after cleanup
           command: "{{ runner_base_dir }}/deploy-runner/build-rootfs.sh {{ rootfs_path }}"
 
     - name: Store rootfs hash
