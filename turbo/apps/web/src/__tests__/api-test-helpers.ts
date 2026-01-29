@@ -4,17 +4,6 @@
  * These utilities provide functions to create test data through API endpoints
  * instead of direct database operations. This ensures tests validate the
  * complete API flow, catching issues that direct DB operations might miss.
- *
- * Usage:
- *   import { createTestRequest, createDefaultComposeConfig, createTestSandboxToken } from "@/test/api-test-helpers";
- *
- *   const config = createDefaultComposeConfig("my-agent");
- *   const token = await createTestSandboxToken(userId, runId);
- *   const request = createTestRequest("http://localhost:3000/api/agent/composes", {
- *     method: "POST",
- *     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
- *     body: JSON.stringify({ content: config }),
- *   });
  */
 import { NextRequest } from "next/server";
 import type { AgentComposeYaml } from "../types/agent-compose";
@@ -22,6 +11,12 @@ import { generateSandboxToken } from "../lib/auth/sandbox-token";
 import { initServices } from "../lib/init-services";
 import { cliTokens } from "../db/schema/cli-tokens";
 import { eq } from "drizzle-orm";
+
+// Route handlers - imported here so callers don't need to pass them
+import { POST as createComposeRoute } from "../../app/api/agent/composes/route";
+import { POST as createScopeRoute } from "../../app/api/scope/route";
+import { PUT as setCredentialRoute } from "../../app/api/credentials/route";
+import { PUT as upsertModelProviderRoute } from "../../app/api/model-providers/route";
 
 /**
  * Helper to create a NextRequest for testing.
@@ -134,4 +129,113 @@ export function generateTestId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(16).substring(2, 6);
   return `t${timestamp}${random}`;
+}
+
+/**
+ * API-based test data creation context.
+ * Provides methods to create test data through API endpoints.
+ */
+export interface TestDataContext {
+  createScope: (slug: string) => Promise<{ id: string; slug: string }>;
+  createCompose: (
+    agentName: string,
+    overrides?: Partial<AgentComposeYaml["agents"][string]>,
+  ) => Promise<{ composeId: string; versionId: string }>;
+  createCredential: (
+    name: string,
+    value: string,
+    description?: string,
+  ) => Promise<{ id: string; name: string }>;
+  createModelProvider: (
+    type: string,
+    credentialValue: string,
+  ) => Promise<{ id: string; type: string }>;
+}
+
+/**
+ * Get a test data context that uses API route handlers.
+ * Routes are imported internally, so no parameters needed.
+ *
+ * Usage:
+ *   const ctx = getTestDataContext();
+ *   const scope = await ctx.createScope("my-scope");
+ *   const compose = await ctx.createCompose("my-agent");
+ */
+export function getTestDataContext(): TestDataContext {
+  return {
+    async createScope(slug: string) {
+      const request = createTestRequest("http://localhost:3000/api/scope", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const response = await createScopeRoute(request);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Failed to create scope: ${error.error?.message || response.status}`,
+        );
+      }
+      return response.json();
+    },
+
+    async createCompose(agentName, overrides) {
+      const config = createDefaultComposeConfig(agentName, overrides);
+      const request = createTestRequest(
+        "http://localhost:3000/api/agent/composes",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: config }),
+        },
+      );
+      const response = await createComposeRoute(request);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Failed to create compose: ${error.error?.message || response.status}`,
+        );
+      }
+      return response.json();
+    },
+
+    async createCredential(name, value, description) {
+      const request = createTestRequest(
+        "http://localhost:3000/api/credentials",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, value, description }),
+        },
+      );
+      const response = await setCredentialRoute(request);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Failed to create credential: ${error.error?.message || response.status}`,
+        );
+      }
+      return response.json();
+    },
+
+    async createModelProvider(type, credentialValue) {
+      const request = createTestRequest(
+        "http://localhost:3000/api/model-providers",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, credential: credentialValue }),
+        },
+      );
+      const response = await upsertModelProviderRoute(request);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Failed to create model provider: ${error.error?.message || response.status}`,
+        );
+      }
+      const data = await response.json();
+      return data.provider;
+    },
+  };
 }
