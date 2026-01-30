@@ -1,3 +1,4 @@
+import { CopyButton } from "@vm0/ui";
 import { getEventStyle } from "../constants/event-styles.ts";
 import { CollapsibleJson } from "./collapsible-json.tsx";
 import { highlightText } from "../utils/highlight-text.tsx";
@@ -353,9 +354,14 @@ function ToolInputParams({
   if (lowerName === "bash") {
     const command = input.command as string | undefined;
     return (
-      <code className="block font-mono text-sm bg-input text-foreground px-4 py-3 rounded-[10px] w-full overflow-x-auto whitespace-pre-wrap">
-        {command}
-      </code>
+      <div className="flex gap-2 items-start bg-sidebar rounded-[10px] px-4 py-3 w-full">
+        <code className="flex-1 font-mono text-sm text-foreground overflow-x-auto whitespace-pre-wrap min-w-0">
+          {command}
+        </code>
+        {command && (
+          <CopyButton text={command} className="shrink-0 h-4 w-4 p-0" />
+        )}
+      </div>
     );
   }
 
@@ -607,8 +613,6 @@ function ResultContent({
     searchTerm.trim() &&
     text.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const preClass = "bg-input text-foreground";
-
   const contentElement = searchTerm
     ? highlightText(text, {
         searchTerm,
@@ -625,21 +629,23 @@ function ResultContent({
         <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
           Output ({lines.length} lines)
         </summary>
-        <pre
-          className={`mt-2 text-xs whitespace-pre-wrap overflow-x-auto p-3 rounded max-h-80 overflow-y-auto ${preClass}`}
-        >
-          {contentElement}
-        </pre>
+        <div className="mt-2 flex gap-2 items-start bg-sidebar rounded-[10px] px-4 py-3">
+          <pre className="flex-1 text-xs text-foreground whitespace-pre-wrap overflow-x-auto max-h-80 overflow-y-auto min-w-0">
+            {contentElement}
+          </pre>
+          <CopyButton text={text} className="shrink-0 h-4 w-4 p-0" />
+        </div>
       </details>
     );
   }
 
   return (
-    <pre
-      className={`text-xs whitespace-pre-wrap overflow-x-auto p-2 rounded ${preClass}`}
-    >
-      {contentElement}
-    </pre>
+    <div className="flex gap-2 items-start bg-sidebar rounded-[10px] px-4 py-3">
+      <pre className="flex-1 text-xs text-foreground whitespace-pre-wrap overflow-x-auto min-w-0">
+        {contentElement}
+      </pre>
+      <CopyButton text={text} className="shrink-0 h-4 w-4 p-0" />
+    </div>
   );
 }
 
@@ -784,8 +790,8 @@ export function EventCard({
       <div
         className={`rounded-lg border ${style.borderColor} ${style.bgColor} p-4`}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-1">
+        <div className="flex gap-4 items-start">
+          <div className="flex-1 min-w-0 space-y-2">
             {/* Badge */}
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium bg-sky-50 border border-sky-600 text-sky-600 dark:bg-sky-950/30 dark:border-sky-500 dark:text-sky-400">
               <Icon className="h-4 w-4" />
@@ -795,18 +801,16 @@ export function EventCard({
             <div className="font-medium text-sm text-foreground">
               {subtype === "init" ? "Initialize" : subtype}
             </div>
+            {subtype === "init" && <SystemInitContent eventData={eventData} />}
+            {subtype !== "init" && eventData.message?.content === null && (
+              <CollapsibleJson data={eventData} label="Event Data" />
+            )}
           </div>
           {/* Timestamp */}
-          <span className="text-sm text-muted-foreground">
+          <span className="shrink-0 text-sm text-muted-foreground">
             {formatEventTime(event.createdAt)}
           </span>
         </div>
-        {subtype === "init" && <SystemInitContent eventData={eventData} />}
-        {subtype !== "init" && eventData.message?.content === null && (
-          <div className="mt-2">
-            <CollapsibleJson data={eventData} label="Event Data" />
-          </div>
-        )}
       </div>
     );
   }
@@ -843,19 +847,19 @@ export function EventCard({
       <div
         className={`rounded-lg border ${style.borderColor} ${style.bgColor} p-4`}
       >
-        <div className="flex items-start justify-between gap-4">
-          <span
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium ${badgeClass}`}
-          >
-            <Icon className="h-4 w-4" />
-            {isAssistant ? "Assistant" : "User"}
-          </span>
-          <span className="text-sm text-muted-foreground">
+        <div className="flex gap-4 items-start">
+          <div className="flex-1 min-w-0 space-y-2">
+            <span
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium ${badgeClass}`}
+            >
+              <Icon className="h-4 w-4" />
+              {isAssistant ? "Assistant" : "User"}
+            </span>
+            <CollapsibleJson data={eventData} label="Event Data" />
+          </div>
+          <span className="shrink-0 text-sm text-muted-foreground">
             {formatEventTime(event.createdAt)}
           </span>
-        </div>
-        <div className="mt-2">
-          <CollapsibleJson data={eventData} label="Event Data" />
         </div>
       </div>
     );
@@ -864,85 +868,87 @@ export function EventCard({
   // Render each content block
   return (
     <div
-      className={`rounded-lg border ${style.borderColor} ${style.bgColor} p-4 space-y-2`}
+      className={`rounded-lg border ${style.borderColor} ${style.bgColor} p-4`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <span
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium ${badgeClass}`}
-        >
-          <Icon className="h-4 w-4" />
-          {isAssistant ? "Assistant" : "User"}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {formatEventTime(event.createdAt)}
-        </span>
-      </div>
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 min-w-0 space-y-2">
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium ${badgeClass}`}
+          >
+            <Icon className="h-4 w-4" />
+            {isAssistant ? "Assistant" : "User"}
+          </span>
 
-      {contents.map((content) => {
-        const contentKey = `${event.sequenceNumber}-${content.type}-${(content as ToolUseContent).id ?? (content as ToolResultContent).tool_use_id ?? Math.random()}`;
+          {contents.map((content) => {
+            const contentKey = `${event.sequenceNumber}-${content.type}-${(content as ToolUseContent).id ?? (content as ToolResultContent).tool_use_id ?? Math.random()}`;
 
-        if (content.type === "text") {
-          return (
-            <div key={contentKey}>
-              <TextContentView
-                content={content as TextContent}
-                searchTerm={searchTerm}
-                currentMatchIndex={currentMatchIndex}
-                matchStartIndex={localMatchOffset}
-              />
-            </div>
-          );
-        }
+            if (content.type === "text") {
+              return (
+                <div key={contentKey}>
+                  <TextContentView
+                    content={content as TextContent}
+                    searchTerm={searchTerm}
+                    currentMatchIndex={currentMatchIndex}
+                    matchStartIndex={localMatchOffset}
+                  />
+                </div>
+              );
+            }
 
-        if (content.type === "tool_use") {
-          const toolContent = content as ToolUseContent;
-          return (
-            <div key={contentKey}>
-              <ToolUseContentView content={toolContent} />
-            </div>
-          );
-        }
+            if (content.type === "tool_use") {
+              const toolContent = content as ToolUseContent;
+              return (
+                <div key={contentKey}>
+                  <ToolUseContentView content={toolContent} />
+                </div>
+              );
+            }
 
-        if (content.type === "tool_result") {
-          const resultContent = content as ToolResultContent;
-          const isError = resultContent.is_error === true;
-          if (isError) {
+            if (content.type === "tool_result") {
+              const resultContent = content as ToolResultContent;
+              const isError = resultContent.is_error === true;
+              if (isError) {
+                return (
+                  <div key={contentKey}>
+                    <ToolResultContentView
+                      content={resultContent}
+                      toolMeta={eventData.tool_use_result ?? undefined}
+                      searchTerm={searchTerm}
+                      currentMatchIndex={currentMatchIndex}
+                      matchStartIndex={localMatchOffset}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div key={contentKey}>
+                  <ToolResultContentView
+                    content={resultContent}
+                    toolMeta={eventData.tool_use_result ?? undefined}
+                    searchTerm={searchTerm}
+                    currentMatchIndex={currentMatchIndex}
+                    matchStartIndex={localMatchOffset}
+                  />
+                </div>
+              );
+            }
+
+            // Unknown content type - show as JSON
+            const unknownContent = content as Record<string, unknown>;
             return (
-              <div key={contentKey}>
-                <ToolResultContentView
-                  content={resultContent}
-                  toolMeta={eventData.tool_use_result ?? undefined}
-                  searchTerm={searchTerm}
-                  currentMatchIndex={currentMatchIndex}
-                  matchStartIndex={localMatchOffset}
+              <div key={contentKey} className="mt-2">
+                <CollapsibleJson
+                  data={unknownContent}
+                  label={`Unknown: ${String(unknownContent.type ?? "content")}`}
                 />
               </div>
             );
-          }
-          return (
-            <div key={contentKey}>
-              <ToolResultContentView
-                content={resultContent}
-                toolMeta={eventData.tool_use_result ?? undefined}
-                searchTerm={searchTerm}
-                currentMatchIndex={currentMatchIndex}
-                matchStartIndex={localMatchOffset}
-              />
-            </div>
-          );
-        }
-
-        // Unknown content type - show as JSON
-        const unknownContent = content as Record<string, unknown>;
-        return (
-          <div key={contentKey} className="mt-2">
-            <CollapsibleJson
-              data={unknownContent}
-              label={`Unknown: ${String(unknownContent.type ?? "content")}`}
-            />
-          </div>
-        );
-      })}
+          })}
+        </div>
+        <span className="shrink-0 text-sm text-muted-foreground">
+          {formatEventTime(event.createdAt)}
+        </span>
+      </div>
     </div>
   );
 }
