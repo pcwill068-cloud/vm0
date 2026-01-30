@@ -3,31 +3,61 @@ import { http, HttpResponse } from "msw";
 import { server } from "../../../mocks/server";
 import { composeCommand, getSecretsFromComposeContent } from "../index";
 import * as fs from "fs/promises";
-import { mkdtempSync, rmSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as yaml from "yaml";
 import chalk from "chalk";
 
-// Mock uploadSkill since it uses git commands (external network call to GitHub)
-vi.mock("../../../lib/storage/system-storage", async (importOriginal) => {
+// Mock downloadGitHubSkill since it uses git commands (external system call)
+// This is the actual external boundary - git sparse-checkout via child_process.exec
+vi.mock("../../../lib/domain/github-skills", async (importOriginal) => {
   const original =
-    await importOriginal<
-      typeof import("../../../lib/storage/system-storage")
-    >();
+    await importOriginal<typeof import("../../../lib/domain/github-skills")>();
   return {
     ...original,
-    uploadSkill: vi.fn(),
-    uploadInstructions: vi.fn().mockResolvedValue({
-      name: "instructions",
-      versionId: "a".repeat(64),
-      action: "created",
-    }),
+    downloadGitHubSkill: vi.fn(),
   };
 });
 
-import { uploadSkill } from "../../../lib/storage/system-storage";
-const mockUploadSkill = vi.mocked(uploadSkill);
+import { downloadGitHubSkill } from "../../../lib/domain/github-skills";
+const mockDownloadGitHubSkill = vi.mocked(downloadGitHubSkill);
+
+/**
+ * Helper to create a mock skill directory with SKILL.md frontmatter.
+ * Returns the path to the skill directory.
+ */
+function createMockSkillDir(
+  destDir: string,
+  skillName: string,
+  frontmatter: { vm0_secrets?: string[]; vm0_vars?: string[] },
+): string {
+  const skillDir = path.join(destDir, skillName);
+  mkdirSync(skillDir, { recursive: true });
+
+  const frontmatterLines: string[] = [];
+  if (frontmatter.vm0_secrets?.length) {
+    frontmatterLines.push(
+      `vm0_secrets: [${frontmatter.vm0_secrets.map((s) => `"${s}"`).join(", ")}]`,
+    );
+  }
+  if (frontmatter.vm0_vars?.length) {
+    frontmatterLines.push(
+      `vm0_vars: [${frontmatter.vm0_vars.map((v) => `"${v}"`).join(", ")}]`,
+    );
+  }
+
+  const skillMd = `---
+${frontmatterLines.join("\n")}
+---
+
+# ${skillName}
+
+Mock skill for testing.
+`;
+  writeFileSync(path.join(skillDir, "SKILL.md"), skillMd);
+  return skillDir;
+}
 
 // Shared spies at file level
 const mockExit = vi.spyOn(process, "exit").mockImplementation((() => {
@@ -388,7 +418,575 @@ describe("compose command", () => {
     });
   });
 
+  describe("app validation", () => {
+    it("should reject invalid app name", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with invalid app"
+    framework: claude-code
+    apps:
+      - invalid-app`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid app"),
+      );
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it("should reject invalid app tag", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with invalid app tag"
+    framework: claude-code
+    apps:
+      - github:invalid-tag`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid app tag"),
+      );
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it("should accept valid app tags (latest)", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with valid app tag"
+    framework: claude-code
+    apps:
+      - github:latest`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining("Compose"),
+      );
+    });
+
+    it("should accept valid app tags (dev)", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with dev app tag"
+    framework: claude-code
+    apps:
+      - github:dev`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining("Compose"),
+      );
+    });
+  });
+
+  describe("framework validation", () => {
+    it("should pass unsupported framework to server (server-side validation)", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with unsupported framework"
+    framework: unsupported-framework`,
+      );
+
+      server.use(
+        http.get("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json(
+            { error: { message: "Not found", code: "NOT_FOUND" } },
+            { status: 404 },
+          );
+        }),
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json(
+            {
+              error: {
+                message:
+                  'Unsupported framework: "unsupported-framework". Supported frameworks: claude-code, codex',
+                code: "BAD_REQUEST",
+              },
+            },
+            { status: 400 },
+          );
+        }),
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Unsupported framework"),
+      );
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it("should accept supported framework without image/working_dir", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with supported framework"
+    framework: claude-code`,
+      );
+
+      server.use(
+        http.get("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json(
+            { error: { message: "Not found", code: "NOT_FOUND" } },
+            { status: 404 },
+          );
+        }),
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining("Compose"),
+      );
+    });
+  });
+
+  describe("skill URL validation", () => {
+    it("should reject invalid GitHub URL in skills", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    framework: claude-code
+    image: "vm0/claude-code:dev"
+    skills:
+      - https://example.com/not-a-github-url`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid skill URL"),
+      );
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it("should reject non-tree GitHub URLs", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    framework: claude-code
+    image: "vm0/claude-code:dev"
+    skills:
+      - https://github.com/vm0-ai/vm0-skills/blob/main/github`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid skill URL"),
+      );
+    });
+  });
+
+  describe("instructions validation", () => {
+    it("should reject empty instructions string", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    framework: claude-code
+    image: "vm0/claude-code:dev"
+    instructions: ""`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining("empty"),
+      );
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it("should fail when instructions file does not exist", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    framework: claude-code
+    image: "vm0/claude-code:dev"
+    instructions: nonexistent-file.md`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe("runner group validation", () => {
+    it("should accept valid runner group format (scope/name)", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  valid-runner-agent:
+    description: "Test agent with valid runner group"
+    framework: claude-code
+    experimental_runner:
+      group: acme/production`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "valid-runner-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining("Compose"),
+      );
+    });
+
+    it("should reject invalid runner group format (missing slash)", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  invalid-runner-agent:
+    description: "Test agent with invalid runner group"
+    framework: claude-code
+    experimental_runner:
+      group: invalid-no-slash`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      const allErrors = mockConsoleError.mock.calls.map(
+        (call) => call[0] as string,
+      );
+      const hasFormatError = allErrors.some(
+        (err) => err.includes("scope/name") || err.includes("format"),
+      );
+      expect(hasFormatError).toBe(true);
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+
+    it.each(["org/team", "my-org/my-runner", "company123/prod-runner", "a/b"])(
+      "should accept valid runner group format: %s",
+      async (group) => {
+        await fs.writeFile(
+          path.join(tempDir, "vm0.yaml"),
+          `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent"
+    framework: claude-code
+    experimental_runner:
+      group: ${group}`,
+        );
+
+        server.use(
+          http.post("http://localhost:3000/api/agent/composes", () => {
+            return HttpResponse.json({
+              composeId: "cmp-123",
+              name: "test-agent",
+              versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+              action: "created",
+            });
+          }),
+          http.get("http://localhost:3000/api/scope", () => {
+            return HttpResponse.json(scopeResponse);
+          }),
+        );
+
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+        expect(mockConsoleLog).toHaveBeenCalledWith(
+          expect.stringContaining("Compose"),
+        );
+      },
+    );
+
+    it.each([
+      "no-slash",
+      "too/many/slashes",
+      "UPPERCASE/invalid",
+      "/leading-slash",
+      "trailing-slash/",
+    ])("should reject invalid runner group format: %s", async (group) => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent"
+    framework: claude-code
+    experimental_runner:
+      group: ${group}`,
+      );
+
+      await expect(async () => {
+        await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+      }).rejects.toThrow("process.exit called");
+
+      expect(mockExit).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe("versioning", () => {
+    it("should display version ID in 8-character hex format", async () => {
+      const fullVersionId =
+        "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2";
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent for version display"
+    framework: claude-code`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: fullVersionId,
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      const allLogs = mockConsoleLog.mock.calls
+        .map((call) => call[0])
+        .filter((log): log is string => typeof log === "string");
+      const versionLog = allLogs.find((log) => log.includes("Version:"));
+      expect(versionLog).toBeDefined();
+      expect(versionLog).toContain("a1b2c3d4");
+      expect(versionLog).not.toContain(fullVersionId);
+    });
+
+    it("should display version ID in run command hint", async () => {
+      const fullVersionId =
+        "deadbeef12345678deadbeef12345678deadbeef12345678deadbeef12345678";
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  my-agent:
+    framework: claude-code`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-456",
+            name: "my-agent",
+            versionId: fullVersionId,
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      const allLogs = mockConsoleLog.mock.calls
+        .map((call) => call[0])
+        .filter((log): log is string => typeof log === "string");
+      const runHint = allLogs.find((log) => log.includes("vm0 run"));
+      expect(runHint).toBeDefined();
+      expect(runHint).toContain(":deadbeef");
+    });
+  });
+
+  describe("deprecation warnings", () => {
+    it("should show deprecation warning when image field is explicitly set", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with explicit image"
+    framework: claude-code
+    image: "vm0/claude-code:dev"`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      const allLogs = mockConsoleLog.mock.calls.map(
+        (call) => call[0] as string,
+      );
+      const hasDeprecationWarning = allLogs.some(
+        (log) => log.includes("deprecated") && log.includes("image"),
+      );
+      expect(hasDeprecationWarning).toBe(true);
+    });
+
+    it("should still succeed compose even with deprecation warning", async () => {
+      await fs.writeFile(
+        path.join(tempDir, "vm0.yaml"),
+        `version: "1.0"
+agents:
+  test-agent:
+    description: "Test agent with explicit image"
+    framework: claude-code
+    image: "vm0/claude-code:dev"`,
+      );
+
+      server.use(
+        http.post("http://localhost:3000/api/agent/composes", () => {
+          return HttpResponse.json({
+            composeId: "cmp-123",
+            name: "test-agent",
+            versionId: "a1b2c3d4e5f6g7h8" + "0".repeat(48),
+            action: "created",
+          });
+        }),
+        http.get("http://localhost:3000/api/scope", () => {
+          return HttpResponse.json(scopeResponse);
+        }),
+      );
+
+      await composeCommand.parseAsync(["node", "cli", "vm0.yaml"]);
+
+      const allLogs = mockConsoleLog.mock.calls.map(
+        (call) => call[0] as string,
+      );
+      const hasComposeSuccess = allLogs.some((log) =>
+        log.includes("Compose created"),
+      );
+      expect(hasComposeSuccess).toBe(true);
+    });
+  });
+
   describe("skill frontmatter secret detection", () => {
+    // MSW handlers for storage upload APIs (prepareStorage, commitStorage)
+    // Using "existing: true" to skip actual S3 upload
+    const storageUploadHandlers = [
+      http.post("http://localhost:3000/api/storages/prepare", () => {
+        return HttpResponse.json({
+          versionId: "a".repeat(64),
+          existing: true, // Simulate deduplication to skip S3 upload
+        });
+      }),
+      http.post("http://localhost:3000/api/storages/commit", () => {
+        return HttpResponse.json({
+          success: true,
+          versionId: "a".repeat(64),
+          storageName: "test-storage",
+          size: 1000,
+          fileCount: 1,
+          deduplicated: true,
+        });
+      }),
+    ];
+
     describe("new secret marker", () => {
       it("should mark truly new secrets with (new) when HEAD has no secrets", async () => {
         await fs.writeFile(
@@ -401,17 +999,15 @@ agents:
       - https://github.com/vm0-ai/vm0-skills/tree/main/elevenlabs`,
         );
 
-        mockUploadSkill.mockResolvedValue({
-          name: "agent-skills@elevenlabs",
-          versionId: "a".repeat(64),
-          action: "created",
-          skillName: "elevenlabs",
-          frontmatter: {
+        // Mock downloadGitHubSkill to create a skill directory with frontmatter
+        mockDownloadGitHubSkill.mockImplementation(async (parsed, destDir) => {
+          return createMockSkillDir(destDir, parsed.skillName, {
             vm0_secrets: ["ELEVENLABS_API_KEY"],
-          },
+          });
         });
 
         server.use(
+          ...storageUploadHandlers,
           http.get("http://localhost:3000/api/agent/composes", () => {
             return HttpResponse.json(
               { error: { message: "Not found", code: "NOT_FOUND" } },
@@ -457,17 +1053,15 @@ agents:
       - https://github.com/vm0-ai/vm0-skills/tree/main/elevenlabs`,
         );
 
-        mockUploadSkill.mockResolvedValue({
-          name: "agent-skills@elevenlabs",
-          versionId: "a".repeat(64),
-          action: "created",
-          skillName: "elevenlabs",
-          frontmatter: {
+        // Mock downloadGitHubSkill to create a skill directory with frontmatter
+        mockDownloadGitHubSkill.mockImplementation(async (parsed, destDir) => {
+          return createMockSkillDir(destDir, parsed.skillName, {
             vm0_secrets: ["ELEVENLABS_API_KEY"],
-          },
+          });
         });
 
         server.use(
+          ...storageUploadHandlers,
           http.get("http://localhost:3000/api/agent/composes", () => {
             return HttpResponse.json({
               id: "existing-compose-id",
@@ -528,17 +1122,15 @@ agents:
       - https://github.com/vm0-ai/vm0-skills/tree/main/elevenlabs`,
         );
 
-        mockUploadSkill.mockResolvedValue({
-          name: "agent-skills@elevenlabs",
-          versionId: "a".repeat(64),
-          action: "created",
-          skillName: "elevenlabs",
-          frontmatter: {
+        // Mock downloadGitHubSkill to create a skill directory with frontmatter
+        mockDownloadGitHubSkill.mockImplementation(async (parsed, destDir) => {
+          return createMockSkillDir(destDir, parsed.skillName, {
             vm0_secrets: ["NEW_SECRET"],
-          },
+          });
         });
 
         server.use(
+          ...storageUploadHandlers,
           http.get("http://localhost:3000/api/agent/composes", () => {
             return HttpResponse.json(
               { error: { message: "Not found", code: "NOT_FOUND" } },
@@ -573,17 +1165,15 @@ agents:
       - https://github.com/vm0-ai/vm0-skills/tree/main/elevenlabs`,
         );
 
-        mockUploadSkill.mockResolvedValue({
-          name: "agent-skills@elevenlabs",
-          versionId: "a".repeat(64),
-          action: "created",
-          skillName: "elevenlabs",
-          frontmatter: {
+        // Mock downloadGitHubSkill to create a skill directory with frontmatter
+        mockDownloadGitHubSkill.mockImplementation(async (parsed, destDir) => {
+          return createMockSkillDir(destDir, parsed.skillName, {
             vm0_secrets: ["ELEVENLABS_API_KEY"],
-          },
+          });
         });
 
         server.use(
+          ...storageUploadHandlers,
           http.get("http://localhost:3000/api/agent/composes", () => {
             return HttpResponse.json({
               id: "existing-compose-id",
