@@ -206,11 +206,14 @@ function ToolInputDetails({
     const command = input.command as string | undefined;
     if (command) {
       return (
-        <div className="flex gap-2 items-start bg-gray-50 rounded-lg px-3 py-2">
-          <code className="flex-1 font-mono text-xs text-foreground whitespace-pre-wrap break-all">
+        <div className="relative bg-sidebar dark:bg-sidebar rounded-lg px-3 py-2">
+          <CopyButton
+            text={command}
+            className="sticky top-0 float-right ml-2 h-6 w-6 p-1 bg-background/80 hover:bg-background rounded z-10"
+          />
+          <code className="font-mono text-xs text-foreground whitespace-pre-wrap break-all">
             {command}
           </code>
-          <CopyButton text={command} className="shrink-0 h-4 w-4 p-0" />
         </div>
       );
     }
@@ -301,22 +304,28 @@ function ToolResultDetails({
           Output ({lines.length} lines
           {bytes ? `, ${(bytes / 1024).toFixed(1)} KB` : ""})
         </summary>
-        <div className="mt-1 flex gap-2 items-start bg-gray-50 rounded-lg px-3 py-2">
-          <pre className="flex-1 text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto break-all">
+        <div className="mt-1 relative bg-sidebar dark:bg-sidebar rounded-lg px-3 py-2">
+          <CopyButton
+            text={content}
+            className="sticky top-0 float-right ml-2 h-6 w-6 p-1 bg-background/80 hover:bg-background rounded z-10"
+          />
+          <pre className="text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto break-all">
             {contentElement}
           </pre>
-          <CopyButton text={content} className="shrink-0 h-4 w-4 p-0" />
         </div>
       </details>
     );
   }
 
   return (
-    <div className="flex gap-2 items-start bg-gray-50 rounded-lg px-3 py-2">
-      <pre className="flex-1 text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto break-all">
+    <div className="relative bg-sidebar dark:bg-sidebar rounded-lg px-3 py-2">
+      <CopyButton
+        text={content}
+        className="sticky top-0 float-right ml-2 h-6 w-6 p-1 bg-background/80 hover:bg-background rounded z-10"
+      />
+      <pre className="text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto break-all">
         {contentElement}
       </pre>
-      <CopyButton text={content} className="shrink-0 h-4 w-4 p-0" />
     </div>
   );
 }
