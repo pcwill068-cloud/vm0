@@ -1,14 +1,11 @@
 import {
-  IconUser,
-  IconSettings,
   IconCheck,
-  IconX,
   IconCircle,
   IconLoader,
   IconListCheck,
 } from "@tabler/icons-react";
-import { highlightText } from "../utils/highlight-text.tsx";
-import type { GroupedMessage, TodoItem } from "../log-detail/utils.ts";
+import MarkdownPreview from "@uiw/react-markdown-preview";
+import type { GroupedMessage } from "../log-detail/utils.ts";
 import { ToolSummary } from "./tool-summary.tsx";
 import {
   SystemInitContent,
@@ -25,80 +22,54 @@ interface GroupedMessageCardProps {
 }
 
 // Auto-collapse thresholds
-const TEXT_COLLAPSE_CHARS = 200;
-const TEXT_COLLAPSE_LINES = 3;
+const TEXT_COLLAPSE_CHARS = 500;
+const TEXT_COLLAPSE_LINES = 8;
 
 function shouldCollapseText(text: string): boolean {
   const lines = text.split("\n").length;
   return text.length > TEXT_COLLAPSE_CHARS || lines > TEXT_COLLAPSE_LINES;
 }
 
-function checkTextSearchMatch(
-  text: string,
-  searchTerm: string | undefined,
-): boolean {
-  if (!searchTerm || !searchTerm.trim()) {
-    return false;
-  }
-  return text.toLowerCase().includes(searchTerm.toLowerCase());
+function MarkdownContent({ text }: { text: string }) {
+  return (
+    <MarkdownPreview
+      source={text}
+      className="!bg-transparent !text-foreground text-sm"
+      style={{
+        backgroundColor: "transparent",
+        fontSize: "0.875rem",
+        lineHeight: "1.5",
+      }}
+    />
+  );
 }
 
-function CollapsibleText({
-  text,
-  searchTerm,
-  currentMatchIndex,
-  matchStartIndex,
-}: {
-  text: string;
-  searchTerm?: string;
-  currentMatchIndex?: number;
-  matchStartIndex?: number;
-}) {
+function CollapsibleMarkdown({ text }: { text: string }) {
   const shouldCollapse = shouldCollapseText(text);
-  const hasSearchMatch = checkTextSearchMatch(text, searchTerm);
-  const defaultOpen = !shouldCollapse || hasSearchMatch;
-
-  const contentElement = searchTerm
-    ? highlightText(text, {
-        searchTerm,
-        currentMatchIndex,
-        matchStartIndex,
-      }).element
-    : text;
 
   if (!shouldCollapse) {
-    return (
-      <div className="text-sm text-foreground whitespace-pre-wrap">
-        {contentElement}
-      </div>
-    );
+    return <MarkdownContent text={text} />;
   }
 
-  // Collapsed view with details/summary
-  const truncatedText = text.slice(0, 150) + "...";
-  const truncatedElement = searchTerm
-    ? highlightText(truncatedText, {
-        searchTerm,
-        currentMatchIndex,
-        matchStartIndex,
-      }).element
-    : truncatedText;
+  // Get first few lines for preview
+  const lines = text.split("\n");
+  const previewText = lines.slice(0, 3).join("\n") + "...";
 
   return (
-    <details className="group" open={defaultOpen}>
+    <details className="group">
       <summary className="cursor-pointer list-none">
-        <span className="text-sm text-foreground whitespace-pre-wrap group-open:hidden">
-          {truncatedElement}
-        </span>
-        <span className="ml-1 text-xs text-blue-600 hover:underline group-open:hidden">
-          Show more
-        </span>
+        <div className="group-open:hidden">
+          <MarkdownContent text={previewText} />
+          <span className="text-xs text-blue-600 hover:underline">
+            Show more
+          </span>
+        </div>
       </summary>
-      <div className="text-sm text-foreground whitespace-pre-wrap">
-        {contentElement}
+      <div>
+        <MarkdownContent text={text} />
         <button
           type="button"
-          className="ml-2 text-xs text-muted-foreground hover:text-foreground"
+          className="mt-1 text-xs text-muted-foreground hover:text-foreground"
           onClick={(e) => {
             const details = e.currentTarget.closest("details");
             if (details) {
@@ -131,6 +102,11 @@ export function GroupedMessageCard({
     return <ResultMessageCard message={message} eventData={eventData} />;
   }
 
+  // Todo card (standalone)
+  if (message.type === "todo") {
+    return <TodoCard message={message} />;
+  }
+
   // Assistant message
   return (
     <AssistantMessageCard
@@ -154,10 +130,6 @@ function SystemMessageCard({
     <div className="rounded-lg border border-sky-600/30 bg-sky-600/5 p-4">
       <div className="flex gap-4 items-start">
         <div className="flex-1 min-w-0 space-y-2">
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium bg-sky-600/10 border border-sky-600 text-sky-600">
-            <IconSettings className="h-4 w-4" />
-            System
-          </span>
           <div className="font-medium text-sm text-foreground">
             {subtype === "init" ? "Initialize" : subtype}
           </div>
@@ -182,21 +154,15 @@ function ResultMessageCard({
   const isError = eventData.is_error === true || subtype === "error";
   const borderColor = isError ? "border-red-500/30" : "border-lime-600/30";
   const bgColor = isError ? "bg-red-500/5" : "bg-lime-600/5";
-  const badgeColor = isError
-    ? "bg-red-500/10 border-red-500 text-red-500"
-    : "bg-lime-600/10 border-lime-600 text-lime-600";
-  const StatusIcon = isError ? IconX : IconCheck;
+  const textColor = isError ? "text-red-600" : "text-lime-600";
 
   return (
     <div className={`rounded-lg border ${borderColor} ${bgColor} p-4`}>
       <div className="flex gap-4 items-start">
         <div className="flex-1 min-w-0 space-y-2">
-          <span
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium border ${badgeColor}`}
-          >
-            <StatusIcon className="h-4 w-4" />
+          <div className={`font-medium text-sm ${textColor}`}>
             {isError ? "Failed" : "Result"}
-          </span>
+          </div>
           <ResultEventContent eventData={eventData} />
         </div>
         <span className="shrink-0 text-sm text-muted-foreground">
@@ -221,50 +187,74 @@ function getTodoStatusIcon(status: string) {
   }
 }
 
-function TodoSummaryCard({
-  todoItems,
-  createdAt,
-}: {
-  todoItems: TodoItem[];
-  createdAt: string;
-}) {
+/**
+ * Standalone todo card that shows current task status.
+ * Displays in-progress task prominently with expandable full list.
+ */
+function TodoCard({ message }: { message: GroupedMessage }) {
+  const todoItems = message.todoState ?? [];
+  const inProgressTask = todoItems.find((t) => t.status === "in_progress");
+  const completedCount = todoItems.filter(
+    (t) => t.status === "completed",
+  ).length;
+  const totalCount = todoItems.length;
+
   return (
     <div className="rounded-lg border border-purple-600/30 bg-purple-600/5 p-4">
       <div className="flex gap-4 items-start">
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Badge */}
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium bg-purple-600/10 border border-purple-600 text-purple-600">
-            <IconListCheck className="h-4 w-4" />
-            Tasks
-          </span>
-
-          {/* Todo list */}
-          <div className="space-y-1.5">
-            {todoItems.map((item, index) => (
-              <div
-                key={`${item.content}-${index}`}
-                className="flex items-start gap-2 text-sm"
-              >
-                <span className="mt-0.5 shrink-0">
-                  {getTodoStatusIcon(item.status)}
-                </span>
-                <span
-                  className={
-                    item.status === "completed"
-                      ? "text-muted-foreground line-through"
-                      : "text-foreground"
-                  }
-                >
-                  {item.content}
+          {/* Header with current task */}
+          <div className="flex items-center gap-2">
+            <IconListCheck className="h-4 w-4 text-purple-600 shrink-0" />
+            {inProgressTask ? (
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <IconLoader className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
+                <span className="text-sm text-foreground truncate">
+                  {inProgressTask.content}
                 </span>
               </div>
-            ))}
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                All tasks completed
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground shrink-0">
+              {completedCount}/{totalCount}
+            </span>
           </div>
+
+          {/* Expandable full list */}
+          <details className="group">
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              View all tasks
+            </summary>
+            <div className="mt-2 space-y-1.5">
+              {todoItems.map((item, index) => (
+                <div
+                  key={`${item.content}-${index}`}
+                  className="flex items-start gap-2 text-sm"
+                >
+                  <span className="mt-0.5 shrink-0">
+                    {getTodoStatusIcon(item.status)}
+                  </span>
+                  <span
+                    className={
+                      item.status === "completed"
+                        ? "text-muted-foreground line-through"
+                        : "text-foreground"
+                    }
+                  >
+                    {item.content}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
 
         {/* Timestamp */}
         <span className="shrink-0 text-sm text-muted-foreground">
-          {formatEventTime(createdAt)}
+          {formatEventTime(message.createdAt)}
         </span>
       </div>
     </div>
@@ -282,35 +272,15 @@ function AssistantMessageCard({
   currentMatchIndex?: number;
   matchStartIndex?: number;
 }) {
-  const { textBefore, textAfter, toolOperations, todoSummary } = message;
+  const { textBefore, textAfter, toolOperations } = message;
   const hasTools = toolOperations && toolOperations.length > 0;
-
-  // If this is a todo summary card (no text, no tools, just todoSummary)
-  if (todoSummary && todoSummary.length > 0 && !textBefore && !hasTools) {
-    return (
-      <TodoSummaryCard todoItems={todoSummary} createdAt={message.createdAt} />
-    );
-  }
 
   return (
     <div className="rounded-lg border border-yellow-600/30 bg-yellow-600/5 p-4">
       <div className="flex gap-4 items-start">
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Badge */}
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium bg-yellow-600/10 border border-yellow-600 text-yellow-600">
-            <IconUser className="h-4 w-4" />
-            Claude
-          </span>
-
           {/* Text before tools */}
-          {textBefore && (
-            <CollapsibleText
-              text={textBefore}
-              searchTerm={searchTerm}
-              currentMatchIndex={currentMatchIndex}
-              matchStartIndex={matchStartIndex}
-            />
-          )}
+          {textBefore && <CollapsibleMarkdown text={textBefore} />}
 
           {/* Tool operations */}
           {hasTools && (
@@ -328,14 +298,7 @@ function AssistantMessageCard({
           )}
 
           {/* Text after tools */}
-          {textAfter && (
-            <CollapsibleText
-              text={textAfter}
-              searchTerm={searchTerm}
-              currentMatchIndex={currentMatchIndex}
-              matchStartIndex={matchStartIndex}
-            />
-          )}
+          {textAfter && <CollapsibleMarkdown text={textAfter} />}
         </div>
 
         {/* Timestamp */}

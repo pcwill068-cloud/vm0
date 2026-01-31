@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   formatTime,
   formatDuration,
-  getEventTypeCounts,
   eventMatchesSearch,
   getVisibleEventText,
   scrollToMatch,
@@ -47,40 +46,6 @@ describe("log-detail utils", () => {
       expect(
         formatDuration("2024-01-01T00:00:00Z", "2024-01-01T00:01:30Z"),
       ).toBe("1m 30s");
-    });
-  });
-
-  describe("getEventTypeCounts", () => {
-    it("should count event types correctly", () => {
-      const events: AgentEvent[] = [
-        {
-          sequenceNumber: 1,
-          eventType: "assistant",
-          eventData: {},
-          createdAt: "2024-01-01T00:00:00Z",
-        },
-        {
-          sequenceNumber: 2,
-          eventType: "assistant",
-          eventData: {},
-          createdAt: "2024-01-01T00:00:01Z",
-        },
-        {
-          sequenceNumber: 3,
-          eventType: "user",
-          eventData: {},
-          createdAt: "2024-01-01T00:00:02Z",
-        },
-      ];
-
-      const counts = getEventTypeCounts(events);
-      expect(counts.get("assistant")).toBe(2);
-      expect(counts.get("user")).toBe(1);
-    });
-
-    it("should return empty map for empty events", () => {
-      const counts = getEventTypeCounts([]);
-      expect(counts.size).toBe(0);
     });
   });
 
@@ -706,7 +671,7 @@ describe("log-detail utils", () => {
       expect(result[1].toolOperations).toBeUndefined();
     });
 
-    it("should insert todo summary before result", () => {
+    it("should create standalone todo card for TodoWrite", () => {
       const events: AgentEvent[] = [
         {
           sequenceNumber: 1,
@@ -738,15 +703,13 @@ describe("log-detail utils", () => {
         },
       ];
       const result = groupEventsIntoMessages(events);
-      // Should be: assistant (tool), assistant (todo summary), result
-      expect(result).toHaveLength(3);
-      expect(result[0].type).toBe("assistant");
-      expect(result[0].toolOperations).toHaveLength(1);
-      expect(result[1].type).toBe("assistant");
-      expect(result[1].todoSummary).toHaveLength(2);
-      expect(result[1].todoSummary?.[0].content).toBe("Task 1");
-      expect(result[1].todoSummary?.[0].status).toBe("completed");
-      expect(result[2].type).toBe("result");
+      // Should be: standalone todo card, result
+      expect(result).toHaveLength(2);
+      expect(result[0].type).toBe("todo");
+      expect(result[0].todoState).toHaveLength(2);
+      expect(result[0].todoState?.[0].content).toBe("Task 1");
+      expect(result[0].todoState?.[0].status).toBe("completed");
+      expect(result[1].type).toBe("result");
     });
   });
 
