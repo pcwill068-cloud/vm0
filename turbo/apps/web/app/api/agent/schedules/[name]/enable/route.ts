@@ -3,10 +3,7 @@ import { initServices } from "../../../../../../src/lib/init-services";
 import { getUserId } from "../../../../../../src/lib/auth/get-user-id";
 import { enableSchedule } from "../../../../../../src/lib/schedule";
 import { logger } from "../../../../../../src/lib/logger";
-import {
-  NotFoundError,
-  SchedulePastError,
-} from "../../../../../../src/lib/errors";
+import { isNotFound, isSchedulePast } from "../../../../../../src/lib/errors";
 
 const log = logger("api:schedules:enable");
 
@@ -52,13 +49,13 @@ export async function POST(
 
     return NextResponse.json(schedule, { status: 200 });
   } catch (error) {
-    if (error instanceof NotFoundError) {
+    if (isNotFound(error)) {
       return NextResponse.json(
         { error: { message: error.message, code: "NOT_FOUND" } },
         { status: 404 },
       );
     }
-    if (error instanceof SchedulePastError) {
+    if (isSchedulePast(error)) {
       return NextResponse.json(
         { error: { message: error.message, code: "SCHEDULE_PAST" } },
         { status: 400 },

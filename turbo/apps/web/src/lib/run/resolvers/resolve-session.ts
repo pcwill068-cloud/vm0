@@ -3,11 +3,7 @@ import {
   agentComposes,
   agentComposeVersions,
 } from "../../../db/schema/agent-compose";
-import {
-  NotFoundError,
-  UnauthorizedError,
-  BadRequestError,
-} from "../../errors";
+import { notFound, unauthorized, badRequest } from "../../errors";
 import { logger } from "../../logger";
 import { getAgentSessionWithConversation } from "../../agent-session";
 import type { ConversationResolution } from "./types";
@@ -36,23 +32,21 @@ export async function resolveSession(
   const session = await getAgentSessionWithConversation(sessionId);
 
   if (!session) {
-    throw new NotFoundError("Agent session not found");
+    throw notFound("Agent session not found");
   }
 
   if (session.userId !== userId) {
-    throw new UnauthorizedError(
-      "Agent session does not belong to authenticated user",
-    );
+    throw unauthorized("Agent session does not belong to authenticated user");
   }
 
   if (!session.conversation) {
-    throw new NotFoundError(
+    throw notFound(
       "Agent session has no conversation history to continue from",
     );
   }
 
   if (!session.conversationId) {
-    throw new NotFoundError("Agent session has no conversation ID");
+    throw notFound("Agent session has no conversation ID");
   }
 
   // Load agent compose
@@ -63,13 +57,11 @@ export async function resolveSession(
     .limit(1);
 
   if (!compose) {
-    throw new NotFoundError("Agent compose not found");
+    throw notFound("Agent compose not found");
   }
 
   if (!compose.headVersionId) {
-    throw new BadRequestError(
-      "Agent compose has no versions. Run 'vm0 build' first.",
-    );
+    throw badRequest("Agent compose has no versions. Run 'vm0 build' first.");
   }
 
   // Use session's fixed compose version if available, fall back to HEAD for backwards compatibility
@@ -84,7 +76,7 @@ export async function resolveSession(
     .limit(1);
 
   if (!version) {
-    throw new NotFoundError(`Agent compose version ${versionId} not found`);
+    throw notFound(`Agent compose version ${versionId} not found`);
   }
 
   // Get secret names from session (values are NEVER stored)

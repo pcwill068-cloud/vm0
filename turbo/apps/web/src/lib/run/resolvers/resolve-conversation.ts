@@ -2,7 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { conversations } from "../../../db/schema/conversation";
 import { agentRuns } from "../../../db/schema/agent-run";
 import { agentComposeVersions } from "../../../db/schema/agent-compose";
-import { NotFoundError, UnauthorizedError } from "../../errors";
+import { notFound, unauthorized } from "../../errors";
 import { logger } from "../../logger";
 import type { ConversationResolution } from "./types";
 import { extractWorkingDir } from "../utils";
@@ -35,7 +35,7 @@ export async function resolveDirectConversation(
     .limit(1);
 
   if (!conversation) {
-    throw new NotFoundError("Conversation not found");
+    throw notFound("Conversation not found");
   }
 
   // Verify conversation belongs to user
@@ -48,9 +48,7 @@ export async function resolveDirectConversation(
     .limit(1);
 
   if (!originalRun) {
-    throw new UnauthorizedError(
-      "Conversation does not belong to authenticated user",
-    );
+    throw unauthorized("Conversation does not belong to authenticated user");
   }
 
   // Load agent compose version
@@ -61,7 +59,7 @@ export async function resolveDirectConversation(
     .limit(1);
 
   if (!version) {
-    throw new NotFoundError("Agent compose version not found");
+    throw notFound("Agent compose version not found");
   }
 
   // Resolve session history from R2 hash or legacy TEXT field
