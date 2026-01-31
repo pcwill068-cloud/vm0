@@ -48,19 +48,19 @@ const toolHeadlineFormatters: Record<
   string,
   (input: Record<string, unknown>) => string
 > = {
-  Read: (input) => `Read(${chalk.dim(String(input.file_path || ""))})`,
-  Edit: (input) => `Edit(${chalk.dim(String(input.file_path || ""))})`,
-  Write: (input) => `Write(${chalk.dim(String(input.file_path || ""))})`,
+  Read: (input) => `Read${chalk.dim(`(${String(input.file_path || "")})`)}`,
+  Edit: (input) => `Edit${chalk.dim(`(${String(input.file_path || "")})`)}`,
+  Write: (input) => `Write${chalk.dim(`(${String(input.file_path || "")})`)}`,
   Bash: (input) =>
-    `Bash(${chalk.dim(truncate(String(input.command || ""), 60))})`,
-  Glob: (input) => `Glob(${chalk.dim(String(input.pattern || ""))})`,
-  Grep: (input) => `Grep(${chalk.dim(String(input.pattern || ""))})`,
+    `Bash${chalk.dim(`(${truncate(String(input.command || ""), 60)})`)}`,
+  Glob: (input) => `Glob${chalk.dim(`(${String(input.pattern || "")})`)}`,
+  Grep: (input) => `Grep${chalk.dim(`(${String(input.pattern || "")})`)}`,
   Task: (input) =>
-    `Task(${chalk.dim(truncate(String(input.description || ""), 60))})`,
+    `Task${chalk.dim(`(${truncate(String(input.description || ""), 60)})`)}`,
   WebFetch: (input) =>
-    `WebFetch(${chalk.dim(truncate(String(input.url || ""), 60))})`,
+    `WebFetch${chalk.dim(`(${truncate(String(input.url || ""), 60)})`)}`,
   WebSearch: (input) =>
-    `WebSearch(${chalk.dim(truncate(String(input.query || ""), 60))})`,
+    `WebSearch${chalk.dim(`(${truncate(String(input.query || ""), 60)})`)}`,
   TodoWrite: () => "TodoWrite",
 };
 
@@ -83,6 +83,13 @@ export function formatToolResult(
   const { tool, input } = toolUse;
   const { result: resultText, isError } = result;
   const lines: string[] = [];
+
+  // Special handling for Read - strip line numbers and filter system content
+  if (tool === "Read" && !isError && resultText) {
+    const readLines = formatReadContent(resultText, verbose);
+    lines.push(...readLines);
+    return lines;
+  }
 
   // Special handling for TodoWrite - show the task list
   if (tool === "TodoWrite" && !isError) {
@@ -138,6 +145,61 @@ export function formatToolResult(
   } else {
     // No result content, show done
     lines.push(`└ ✓ ${chalk.dim("Done")}`);
+  }
+
+  return lines;
+}
+
+/**
+ * Format Read tool output - strip line numbers and filter system content
+ * Input format: "     1→content" (line numbers with → separator)
+ * Falls back to raw content if no line numbers are present
+ */
+function formatReadContent(resultText: string, verbose: boolean): string[] {
+  const lines: string[] = [];
+  const rawLines = resultText.split("\n");
+
+  // Parse lines: try to extract content from line number format, strip the number prefix
+  const contentLines: string[] = [];
+  const lineNumberPattern = /^\s*\d+→(.*)$/;
+
+  for (const line of rawLines) {
+    const match = line.match(lineNumberPattern);
+    if (match) {
+      contentLines.push(match[1] ?? "");
+    }
+  }
+
+  // If no line numbers found, use raw content (fallback for plain text results)
+  const displayLines =
+    contentLines.length > 0
+      ? contentLines
+      : rawLines.filter((line) => line.trim().length > 0);
+  const totalLines = displayLines.length;
+
+  if (totalLines === 0) {
+    lines.push(`└ ✓ ${chalk.dim("(empty)")}`);
+    return lines;
+  }
+
+  // Show content preview
+  if (verbose) {
+    for (let i = 0; i < displayLines.length; i++) {
+      const prefix = i === 0 ? "└ " : "  ";
+      lines.push(`${prefix}${chalk.dim(displayLines[i] ?? "")}`);
+    }
+  } else {
+    const previewCount = Math.min(3, totalLines);
+    for (let i = 0; i < previewCount; i++) {
+      const prefix = i === 0 ? "└ " : "  ";
+      lines.push(`${prefix}${chalk.dim(displayLines[i] ?? "")}`);
+    }
+    const remaining = totalLines - previewCount;
+    if (remaining > 0) {
+      lines.push(
+        `  ${chalk.dim(`… +${remaining} ${pluralize(remaining, "line", "lines")} (vm0 logs <runId> to see all)`)}`,
+      );
+    }
   }
 
   return lines;
@@ -203,10 +265,10 @@ function formatEditDiff(
   if (verbose) {
     // Verbose mode: show all lines
     for (const line of oldLines) {
-      lines.push(`  ${chalk.dim(`- ${line}`)}`);
+      lines.push(`  - ${chalk.dim(line)}`);
     }
     for (const line of newLines) {
-      lines.push(`  ${chalk.dim(`+ ${line}`)}`);
+      lines.push(`  + ${chalk.dim(line)}`);
     }
   } else {
     // Compact mode: show first few lines of each
@@ -216,23 +278,23 @@ function formatEditDiff(
 
     // Show removed lines
     for (let i = 0; i < showOld; i++) {
-      lines.push(`  ${chalk.dim(`- ${truncate(oldLines[i] ?? "", 60)}`)}`);
+      lines.push(`  - ${chalk.dim(truncate(oldLines[i] ?? "", 60))}`);
     }
     const remainingOld = oldLines.length - previewLimit;
     if (remainingOld > 0) {
       lines.push(
-        `  ${chalk.dim(`  … +${remainingOld} ${pluralize(remainingOld, "line", "lines")} (vm0 logs <runId> to see all)`)}`,
+        `    ${chalk.dim(`… +${remainingOld} ${pluralize(remainingOld, "line", "lines")} (vm0 logs <runId> to see all)`)}`,
       );
     }
 
     // Show added lines
     for (let i = 0; i < showNew; i++) {
-      lines.push(`  ${chalk.dim(`+ ${truncate(newLines[i] ?? "", 60)}`)}`);
+      lines.push(`  + ${chalk.dim(truncate(newLines[i] ?? "", 60))}`);
     }
     const remainingNew = newLines.length - previewLimit;
     if (remainingNew > 0) {
       lines.push(
-        `  ${chalk.dim(`  … +${remainingNew} ${pluralize(remainingNew, "line", "lines")} (vm0 logs <runId> to see all)`)}`,
+        `    ${chalk.dim(`… +${remainingNew} ${pluralize(remainingNew, "line", "lines")} (vm0 logs <runId> to see all)`)}`,
       );
     }
   }
@@ -259,12 +321,14 @@ function formatTodoList(input: Record<string, unknown>): string[] {
     return lines;
   }
 
-  for (const todo of todos) {
+  for (let i = 0; i < todos.length; i++) {
+    const todo = todos[i]!;
     const content = todo.content || "Unknown task";
     const status = todo.status || "pending";
     const icon = getTodoStatusIcon(status);
     const styledContent = formatTodoContent(content, status);
-    lines.push(`  ${icon} ${styledContent}`);
+    const prefix = i === 0 ? "└ " : "  ";
+    lines.push(`${prefix}${icon} ${styledContent}`);
   }
 
   return lines;
