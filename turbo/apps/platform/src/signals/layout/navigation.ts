@@ -16,23 +16,18 @@ export const NAVIGATION_CONFIG = [
   {
     label: "Your agents",
     items: [
-      { id: "agents", label: "Agents", icon: "Bot", path: "/" },
-      { id: "secrets", label: "Secrets", icon: "Lock", path: "/" },
+      {
+        id: "agents",
+        label: "Agents",
+        icon: "LayoutDashboard",
+        path: "/agents",
+      },
+      { id: "schedules", label: "Schedule", icon: "Clock", path: "/schedules" },
     ],
-  },
-  {
-    label: "Content",
-    items: [{ id: "artifacts", label: "Artificats", icon: "Files", path: "/" }],
   },
   {
     label: "Observation",
     items: [{ id: "logs", label: "Logs", icon: "List", path: "/logs" }],
-  },
-  {
-    label: "Developers",
-    items: [
-      { id: "api-keys", label: "API keys", icon: "SquareKey", path: "/" },
-    ],
   },
 ] as const satisfies readonly NavGroup[];
 
