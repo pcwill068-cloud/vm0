@@ -36,7 +36,7 @@ function LogsTableHeader() {
 
 function LoadingTable() {
   return (
-    <div className="overflow-x-auto rounded-md border border-border bg-card">
+    <div className="overflow-x-auto">
       <Table className="min-w-[800px]">
         <LogsTableHeader />
         <TableBody>
@@ -64,7 +64,7 @@ export function LogsTable() {
         ? currentPage.error.message
         : "Failed to load logs";
     return (
-      <div className="overflow-x-auto rounded-md border border-border bg-card">
+      <div className="overflow-x-auto">
         <Table className="min-w-[800px]">
           <LogsTableHeader />
           <TableBody>
@@ -103,7 +103,7 @@ function LogsTableData({ pageComputed }: LogsTableDataProps) {
         ? dataLoadable.error.message
         : "Failed to load logs";
     return (
-      <div className="overflow-x-auto rounded-md border border-border bg-card">
+      <div className="overflow-x-auto">
         <Table className="min-w-[800px]">
           <LogsTableHeader />
           <TableBody>
@@ -123,7 +123,7 @@ function LogsTableData({ pageComputed }: LogsTableDataProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border bg-card">
+    <div className="overflow-x-auto">
       <Table className="min-w-[800px]">
         <LogsTableHeader />
         <TableBody>
