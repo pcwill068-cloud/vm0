@@ -52,7 +52,7 @@ export const runnerPaths = {
 
   /** Snapshot generation work directory */
   snapshotWorkDir: (baseDir: string) =>
-    path.join(baseDir, "workspaces", ".snapshot-work"),
+    path.join(baseDir, "workspaces", "snapshot"),
 
   /** Check if a directory name is a VM workspace */
   isVmWorkspace: (dirname: string) => dirname.startsWith(VM_WORKSPACE_PREFIX),
@@ -81,6 +81,21 @@ export const vmPaths = {
 
   /** Overlay filesystem for VM writes */
   overlay: (workDir: string) => path.join(workDir, "overlay.ext4"),
+};
+
+/**
+ * Snapshot output paths (within output directory)
+ * These are the final snapshot artifacts
+ */
+export const snapshotOutputPaths = {
+  /** VM state snapshot */
+  snapshot: (outputDir: string) => path.join(outputDir, "snapshot.bin"),
+
+  /** VM memory snapshot */
+  memory: (outputDir: string) => path.join(outputDir, "memory.bin"),
+
+  /** Golden overlay with guest state */
+  overlay: (outputDir: string) => path.join(outputDir, "overlay.ext4"),
 };
 
 /**
