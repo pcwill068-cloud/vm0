@@ -4,7 +4,7 @@ import {
   parseFirecrackerCmdline,
   parseMitmproxyCmdline,
   findFirecrackerProcesses,
-  findMitmproxyProcess,
+  findMitmproxyProcesses,
   findProcessByVmId,
 } from "../process.js";
 import { createVmId as vmId } from "../vm-id.js";
@@ -37,9 +37,13 @@ describe("process discovery", () => {
       const input = cmdline(
         "firecracker",
         "--api-sock",
-        "/tmp/vm0-abcd1234/api.sock",
+        "/opt/runner/workspaces/vm0-abcd1234/api.sock",
       );
-      expect(parseFirecrackerCmdline(input)).toBe("abcd1234");
+      const result = parseFirecrackerCmdline(input);
+      expect(result).toEqual({
+        vmId: vmId("abcd1234"),
+        baseDir: "/opt/runner",
+      });
     });
 
     it("parses --config-file mode (fresh boot)", () => {
@@ -49,18 +53,26 @@ describe("process discovery", () => {
         "/opt/vm0-runner/workspaces/vm0-12345678/config.json",
         "--no-api",
       );
-      expect(parseFirecrackerCmdline(input)).toBe("12345678");
+      const result = parseFirecrackerCmdline(input);
+      expect(result).toEqual({
+        vmId: vmId("12345678"),
+        baseDir: "/opt/vm0-runner",
+      });
     });
 
     it("prefers --api-sock over --config-file when both present", () => {
       const input = cmdline(
         "/usr/bin/firecracker",
         "--api-sock",
-        "/var/run/vm0-aaaaaaaa/api.sock",
+        "/var/run/runner/workspaces/vm0-aaaaaaaa/api.sock",
         "--config-file",
         "/etc/fc.json",
       );
-      expect(parseFirecrackerCmdline(input)).toBe("aaaaaaaa");
+      const result = parseFirecrackerCmdline(input);
+      expect(result).toEqual({
+        vmId: vmId("aaaaaaaa"),
+        baseDir: "/var/run/runner",
+      });
     });
 
     it("returns null for non-firecracker process", () => {
@@ -82,31 +94,48 @@ describe("process discovery", () => {
       expect(parseFirecrackerCmdline(input)).toBeNull();
     });
 
+    it("returns null for path without workspaces directory", () => {
+      const input = cmdline(
+        "firecracker",
+        "--api-sock",
+        "/tmp/vm0-abcd1234/api.sock",
+      );
+      expect(parseFirecrackerCmdline(input)).toBeNull();
+    });
+
     it("returns null for empty cmdline", () => {
       expect(parseFirecrackerCmdline("")).toBeNull();
     });
   });
 
   describe("parseMitmproxyCmdline", () => {
-    it("parses mitmproxy with -p flag", () => {
-      const input = cmdline("mitmproxy", "-p", "8080");
-      expect(parseMitmproxyCmdline(input)).toEqual({ port: 8080 });
+    it("parses mitmdump with vm0_registry_path", () => {
+      const input = cmdline(
+        "mitmdump",
+        "--set",
+        "vm0_registry_path=/opt/runner/vm-registry.json",
+      );
+      expect(parseMitmproxyCmdline(input)).toBe("/opt/runner");
     });
 
-    it("parses mitmdump with --listen-port flag", () => {
+    it("parses mitmproxy with vm0_registry_path among other args", () => {
       const input = cmdline(
         "mitmdump",
         "--listen-port",
-        "9090",
+        "8080",
+        "--set",
+        "confdir=/opt/proxy",
+        "--set",
+        "vm0_registry_path=/opt/runner/pr-123/vm-registry.json",
         "-s",
         "addon.py",
       );
-      expect(parseMitmproxyCmdline(input)).toEqual({ port: 9090 });
+      expect(parseMitmproxyCmdline(input)).toBe("/opt/runner/pr-123");
     });
 
-    it("parses mitmproxy without port flag", () => {
-      const input = cmdline("mitmproxy", "-s", "addon.py");
-      expect(parseMitmproxyCmdline(input)).toEqual({ port: undefined });
+    it("returns null for mitmproxy without vm0_registry_path", () => {
+      const input = cmdline("mitmdump", "--listen-port", "8080");
+      expect(parseMitmproxyCmdline(input)).toBeNull();
     });
 
     it("returns null for non-mitmproxy process", () => {
@@ -118,11 +147,6 @@ describe("process discovery", () => {
     it("returns null for empty cmdline", () => {
       expect(parseMitmproxyCmdline("")).toBeNull();
     });
-
-    it("handles mitmproxy in path", () => {
-      const input = cmdline("/usr/bin/mitmproxy", "-p", "7777");
-      expect(parseMitmproxyCmdline(input)).toEqual({ port: 7777 });
-    });
   });
 
   // ==================== Filesystem tests (with memfs) ====================
@@ -133,7 +157,7 @@ describe("process discovery", () => {
         "/proc/1234/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-aaaabbbb/api.sock",
+          "/opt/runner/workspaces/vm0-aaaabbbb/api.sock",
         ),
         "/proc/5678/cmdline": cmdline("nginx", "-c", "/etc/nginx.conf"),
       });
@@ -143,7 +167,8 @@ describe("process discovery", () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         pid: 1234,
-        vmId: "aaaabbbb",
+        vmId: vmId("aaaabbbb"),
+        baseDir: "/opt/runner",
       });
     });
 
@@ -153,27 +178,33 @@ describe("process discovery", () => {
       expect(findFirecrackerProcesses()).toEqual([]);
     });
 
-    it("handles multiple firecracker processes", () => {
+    it("handles multiple firecracker processes from different runners", () => {
       vol.fromJSON({
         "/proc/100/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-11112222/api.sock",
+          "/opt/runner-a/workspaces/vm0-11112222/api.sock",
         ),
         "/proc/200/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-33334444/api.sock",
+          "/opt/runner-b/workspaces/vm0-33334444/api.sock",
         ),
       });
 
       const result = findFirecrackerProcesses();
 
       expect(result).toHaveLength(2);
-      expect(result.map((p) => p.vmId).sort()).toEqual([
-        "11112222",
-        "33334444",
-      ]);
+      expect(result).toContainEqual({
+        pid: 100,
+        vmId: vmId("11112222"),
+        baseDir: "/opt/runner-a",
+      });
+      expect(result).toContainEqual({
+        pid: 200,
+        vmId: vmId("33334444"),
+        baseDir: "/opt/runner-b",
+      });
     });
 
     it("skips non-numeric entries in /proc", () => {
@@ -183,14 +214,14 @@ describe("process discovery", () => {
         "/proc/1234/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-eeeeeeee/api.sock",
+          "/opt/runner/workspaces/vm0-eeeeeeee/api.sock",
         ),
       });
 
       const result = findFirecrackerProcesses();
 
       expect(result).toHaveLength(1);
-      expect(result[0]?.vmId).toBe("eeeeeeee");
+      expect(result[0]?.vmId).toEqual(vmId("eeeeeeee"));
     });
 
     it("skips when cmdline file does not exist", () => {
@@ -208,7 +239,7 @@ describe("process discovery", () => {
         "/proc/1234/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-aaaabbbb/api.sock",
+          "/opt/runner/workspaces/vm0-aaaabbbb/api.sock",
         ),
         "/proc/5678/cmdline": "will be mocked to throw",
       });
@@ -229,7 +260,7 @@ describe("process discovery", () => {
 
       // Should find the readable process and skip the unreadable one
       expect(result).toHaveLength(1);
-      expect(result[0]?.vmId).toBe("aaaabbbb");
+      expect(result[0]?.vmId).toEqual(vmId("aaaabbbb"));
     });
   });
 
@@ -239,12 +270,12 @@ describe("process discovery", () => {
         "/proc/100/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-aaaaaaaa/api.sock",
+          "/opt/runner/workspaces/vm0-aaaaaaaa/api.sock",
         ),
         "/proc/200/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-bbbbbbbb/api.sock",
+          "/opt/runner/workspaces/vm0-bbbbbbbb/api.sock",
         ),
       });
 
@@ -252,7 +283,8 @@ describe("process discovery", () => {
 
       expect(result).toEqual({
         pid: 200,
-        vmId: "bbbbbbbb",
+        vmId: vmId("bbbbbbbb"),
+        baseDir: "/opt/runner",
       });
     });
 
@@ -261,7 +293,7 @@ describe("process discovery", () => {
         "/proc/100/cmdline": cmdline(
           "firecracker",
           "--api-sock",
-          "/tmp/vm0-aaaaaaaa/api.sock",
+          "/opt/runner/workspaces/vm0-aaaaaaaa/api.sock",
         ),
       });
 
@@ -271,50 +303,56 @@ describe("process discovery", () => {
     });
   });
 
-  describe("findMitmproxyProcess", () => {
-    it("finds mitmproxy process", () => {
+  describe("findMitmproxyProcesses", () => {
+    it("finds mitmproxy processes with registry path", () => {
       vol.fromJSON({
         "/proc/1000/cmdline": cmdline("nginx", "-c", "/etc/nginx.conf"),
         "/proc/2000/cmdline": cmdline(
           "mitmdump",
-          "-p",
-          "8080",
-          "-s",
-          "addon.py",
+          "--set",
+          "vm0_registry_path=/opt/runner-a/vm-registry.json",
+        ),
+        "/proc/3000/cmdline": cmdline(
+          "mitmdump",
+          "--set",
+          "vm0_registry_path=/opt/runner-b/vm-registry.json",
         ),
       });
 
-      const result = findMitmproxyProcess();
+      const result = findMitmproxyProcesses();
 
-      expect(result).toEqual({ pid: 2000, port: 8080 });
+      expect(result).toEqual([
+        { pid: 2000, baseDir: "/opt/runner-a" },
+        { pid: 3000, baseDir: "/opt/runner-b" },
+      ]);
     });
 
-    it("returns null when no mitmproxy process found", () => {
+    it("returns empty array when no mitmproxy process found", () => {
       vol.fromJSON({
         "/proc/1000/cmdline": cmdline("nginx", "-c", "/etc/nginx.conf"),
       });
 
-      const result = findMitmproxyProcess();
+      const result = findMitmproxyProcesses();
 
-      expect(result).toBeNull();
+      expect(result).toEqual([]);
     });
 
-    it("returns null when /proc is empty", () => {
+    it("returns empty array when /proc is empty", () => {
       vol.fromJSON({ "/proc/.keep": "" });
 
-      const result = findMitmproxyProcess();
+      const result = findMitmproxyProcesses();
 
-      expect(result).toBeNull();
+      expect(result).toEqual([]);
     });
 
-    it("finds mitmproxy without port", () => {
+    it("ignores mitmproxy without registry path", () => {
       vol.fromJSON({
-        "/proc/1000/cmdline": cmdline("mitmproxy", "-s", "addon.py"),
+        "/proc/1000/cmdline": cmdline("mitmdump", "-p", "8080"),
       });
 
-      const result = findMitmproxyProcess();
+      const result = findMitmproxyProcesses();
 
-      expect(result).toEqual({ pid: 1000, port: undefined });
+      expect(result).toEqual([]);
     });
   });
 });

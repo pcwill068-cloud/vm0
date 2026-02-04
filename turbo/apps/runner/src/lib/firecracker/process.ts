@@ -10,9 +10,10 @@ import path from "path";
 import { type VmId, createVmId, vmIdValue } from "./vm-id.js";
 import { isProcessRunning } from "../utils/process.js";
 
-interface FirecrackerProcess {
+export interface FirecrackerProcess {
   pid: number;
   vmId: VmId;
+  baseDir: string;
 }
 
 /**
@@ -22,8 +23,12 @@ interface FirecrackerProcess {
  * Supports two modes:
  * - Snapshot restore: --api-sock /path/to/vm0-{vmId}/api.sock
  * - Fresh boot: --config-file /path/to/vm0-{vmId}/config.json
+ *
+ * Returns vmId and baseDir (runner's base directory)
  */
-export function parseFirecrackerCmdline(cmdline: string): VmId | null {
+export function parseFirecrackerCmdline(
+  cmdline: string,
+): { vmId: VmId; baseDir: string } | null {
   const args = cmdline.split("\0");
 
   if (!args[0]?.includes("firecracker")) return null;
@@ -46,29 +51,38 @@ export function parseFirecrackerCmdline(cmdline: string): VmId | null {
   if (!filePath) return null;
 
   // Extract vmId from path: .../vm0-{vmId}/...
-  const match = filePath.match(/vm0-([a-f0-9]+)\//);
-  if (!match?.[1]) return null;
+  const vmIdMatch = filePath.match(/vm0-([a-f0-9]+)\//);
+  if (!vmIdMatch?.[1]) return null;
 
-  return createVmId(match[1]);
+  // Extract baseDir: everything before /workspaces/
+  const baseDirMatch = filePath.match(/^(.+)\/workspaces\/vm0-[a-f0-9]+\//);
+  if (!baseDirMatch?.[1]) return null;
+
+  return { vmId: createVmId(vmIdMatch[1]), baseDir: baseDirMatch[1] };
 }
 
 /**
- * Parse /proc/{pid}/cmdline content to extract mitmproxy process info.
+ * Parse /proc/{pid}/cmdline content to extract mitmproxy base directory.
  * Pure function for easy testing.
+ *
+ * Extracts baseDir from --set vm0_registry_path={baseDir}/vm-registry.json
  */
-export function parseMitmproxyCmdline(
-  cmdline: string,
-): { port?: number } | null {
+export function parseMitmproxyCmdline(cmdline: string): string | null {
   if (!cmdline.includes("mitmproxy") && !cmdline.includes("mitmdump")) {
     return null;
   }
 
   const args = cmdline.split("\0");
-  const portIdx = args.findIndex((a) => a === "-p" || a === "--listen-port");
-  const portArg = args[portIdx + 1];
-  const port = portIdx !== -1 && portArg ? parseInt(portArg, 10) : undefined;
 
-  return { port };
+  // Parse --set vm0_registry_path=xxx (unique per runner)
+  for (const arg of args) {
+    const match = arg.match(/^vm0_registry_path=(.+)\/vm-registry\.json$/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -95,9 +109,9 @@ export function findFirecrackerProcesses(): FirecrackerProcess[] {
 
     try {
       const cmdline = readFileSync(cmdlinePath, "utf-8");
-      const vmId = parseFirecrackerCmdline(cmdline);
-      if (vmId) {
-        processes.push({ pid, vmId });
+      const parsed = parseFirecrackerCmdline(cmdline);
+      if (parsed) {
+        processes.push({ pid, vmId: parsed.vmId, baseDir: parsed.baseDir });
       }
     } catch {
       continue;
@@ -148,17 +162,23 @@ export async function killProcess(
   return !isProcessRunning(pid);
 }
 
+interface MitmproxyProcess {
+  pid: number;
+  baseDir: string;
+}
+
 /**
- * Find mitmproxy process
+ * Find all mitmproxy processes
  */
-export function findMitmproxyProcess(): { pid: number; port?: number } | null {
+export function findMitmproxyProcesses(): MitmproxyProcess[] {
+  const processes: MitmproxyProcess[] = [];
   const procDir = "/proc";
 
   let entries: string[];
   try {
     entries = readdirSync(procDir);
   } catch {
-    return null;
+    return [];
   }
 
   for (const entry of entries) {
@@ -171,14 +191,14 @@ export function findMitmproxyProcess(): { pid: number; port?: number } | null {
 
     try {
       const cmdline = readFileSync(cmdlinePath, "utf-8");
-      const parsed = parseMitmproxyCmdline(cmdline);
-      if (parsed) {
-        return { pid, port: parsed.port };
+      const baseDir = parseMitmproxyCmdline(cmdline);
+      if (baseDir) {
+        processes.push({ pid, baseDir });
       }
     } catch {
       continue;
     }
   }
 
-  return null;
+  return processes;
 }
