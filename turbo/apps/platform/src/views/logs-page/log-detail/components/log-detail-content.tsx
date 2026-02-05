@@ -12,6 +12,7 @@ import { getOrCreateLogDetail$ } from "../../../../signals/logs-page/logs-signal
 import { StatusBadge } from "../../status-badge.tsx";
 import { ArtifactDownloadButton } from "./artifact-download-button.tsx";
 import { AgentEventsCard } from "./agent-events-card.tsx";
+import { LogDetailSkeleton } from "../log-detail-skeleton.tsx";
 import { formatTime, formatTimeShort, formatDuration } from "../utils.ts";
 
 export function LogDetailContent({ logId }: { logId: string }) {
@@ -23,11 +24,7 @@ export function LogDetailContent({ logId }: { logId: string }) {
   const loadable = useLoadable(detail$);
 
   if (loadable.state === "loading") {
-    return (
-      <div className="p-4 sm:p-8">
-        <div className="p-8 text-center text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <LogDetailSkeleton />;
   }
 
   if (loadable.state === "hasError") {
@@ -38,7 +35,7 @@ export function LogDetailContent({ logId }: { logId: string }) {
     return (
       <div className="p-4 sm:p-8">
         <div className="p-8 text-center text-destructive">
-          Error: {errorMessage}
+          Hmm, couldn&apos;t load that... {errorMessage}
         </div>
       </div>
     );
@@ -48,25 +45,27 @@ export function LogDetailContent({ logId }: { logId: string }) {
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
-      {/* Info Card - Grid layout similar to table card */}
+      {/* Info Card - Grid layout with dividers */}
       <div className="p-4 pb-0 sm:px-8 sm:pt-4 sm:pb-0">
-        <div className="shrink-0 grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm px-2 sm:px-4 py-3 bg-card rounded-lg border border-border">
+        <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-y-2 text-sm px-2 sm:px-4 py-3 bg-card rounded-lg border border-border">
           <InfoItem label="Status" showDivider>
             <StatusBadge status={detail.status} />
           </InfoItem>
 
           <InfoItem label="Agent" showDivider>
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-foreground truncate">
               {detail.agentName}
             </span>
           </InfoItem>
 
           <InfoItem label="Framework" showDivider>
-            <span className="text-foreground">{detail.framework || "-"}</span>
+            <span className="text-foreground truncate">
+              {detail.framework || "-"}
+            </span>
           </InfoItem>
 
           <InfoItem label="Duration" showDivider={false}>
-            <span className="text-foreground">
+            <span className="text-foreground whitespace-nowrap">
               {formatDuration(detail.startedAt, detail.completedAt)}
             </span>
           </InfoItem>
@@ -112,11 +111,15 @@ export function LogDetailContent({ logId }: { logId: string }) {
       {/* Error Banner */}
       {detail.error && (
         <div className="px-4 sm:px-8">
-          <div className="shrink-0 px-4 py-3 bg-destructive/10 rounded-lg border border-destructive/30">
-            <span className="text-sm font-medium text-destructive">
-              Error:{" "}
-            </span>
-            <span className="text-sm text-destructive">{detail.error}</span>
+          <div className="shrink-0 px-4 py-3 bg-destructive/10 rounded-lg border border-destructive/30 overflow-hidden">
+            <div className="flex items-start gap-1 min-w-0">
+              <span className="text-sm font-medium text-destructive shrink-0">
+                Error:{" "}
+              </span>
+              <span className="text-sm text-destructive truncate">
+                {detail.error}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -126,7 +129,7 @@ export function LogDetailContent({ logId }: { logId: string }) {
         framework={detail.framework}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        className="flex-1 min-h-0 overflow-auto"
+        className="flex-1 min-h-0"
       />
     </div>
   );
@@ -142,7 +145,7 @@ function InfoItem({
   showDivider?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 px-2 sm:px-4 [&:nth-child(2n+1)]:pl-0 md:[&:nth-child(2n+1)]:pl-4 md:[&:nth-child(4n+1)]:pl-0 relative overflow-hidden [&:nth-child(2n)>.divider]:hidden md:[&:nth-child(2n)>.divider]:block md:[&:nth-child(4n)>.divider]:hidden">
+    <div className="flex items-center gap-2 px-2 sm:px-4 [&:nth-child(2n+1)]:pl-0 lg:[&:nth-child(2n+1)]:pl-4 lg:[&:nth-child(4n+1)]:pl-0 relative overflow-hidden [&:nth-child(2n)>.divider]:hidden lg:[&:nth-child(2n)>.divider]:block lg:[&:nth-child(4n)>.divider]:hidden">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
       <div className="flex items-center text-sm min-w-0 overflow-hidden">
         {children}
@@ -158,7 +161,7 @@ function CopyableId({ label, value }: { label?: string; value: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
       {label && <span className="text-muted-foreground text-sm">{label}</span>}
-      <code className="font-mono text-xs sm:text-sm text-foreground bg-gray-50 px-1.5 sm:px-3 py-1 rounded-lg inline-flex items-center gap-1 truncate">
+      <code className="font-mono text-xs sm:text-sm text-foreground bg-gray-50 px-1.5 sm:px-3 py-1 rounded-lg inline-flex items-center gap-1 min-w-0">
         <span className="truncate">{value.slice(0, 8)}...</span>
         <CopyButton text={value} className="h-4 w-4 p-0 ml-0.5 shrink-0" />
       </code>

@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@vm0/ui/components/ui/table";
 import { AppShell } from "../layout/app-shell.tsx";
+import { AgentsListSkeleton } from "./agents-list-skeleton.tsx";
 import { useGet } from "ccstate-react";
 import {
   agentsList$,
@@ -40,9 +41,9 @@ export function AgentsPage() {
     <AppShell
       breadcrumb={["Agents"]}
       title="Agents"
-      subtitle="A list of all your active agents"
+      subtitle="Your agents, their schedules, and when they were last updated"
     >
-      <div className="flex flex-col gap-5 px-8 pb-8">
+      <div className="flex flex-col gap-5 px-6 pb-8">
         <AgentsListSection />
       </div>
     </AppShell>
@@ -56,20 +57,14 @@ function AgentsListSection() {
   const error = useGet(agentsError$);
 
   if (loading) {
-    return (
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="p-8 text-center">
-          <p className="text-sm text-muted-foreground">Loading agents...</p>
-        </div>
-      </div>
-    );
+    return <AgentsListSkeleton />;
   }
 
   if (error) {
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="p-8 text-center">
-          <p className="text-sm text-destructive">Error: {error}</p>
+          <p className="text-sm text-destructive">Whoops! {error}</p>
         </div>
       </div>
     );
@@ -78,10 +73,16 @@ function AgentsListSection() {
   if (agents.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="p-8 text-center">
+        <div className="p-8 text-center space-y-4">
           <p className="text-sm text-muted-foreground">
-            No agents found. Create your first agent with the CLI.
+            No agents yet. Time to create your first one.
           </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs text-muted-foreground">Get started:</p>
+            <code className="px-3 py-2 text-xs bg-muted rounded-md font-mono text-foreground">
+              npm install -g @vm0/cli && vm0 onboard
+            </code>
+          </div>
         </div>
       </div>
     );
@@ -91,11 +92,11 @@ function AgentsListSection() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Your agents</TableHead>
-          <TableHead>Provider</TableHead>
-          <TableHead>Schedule status</TableHead>
-          <TableHead>Last edit</TableHead>
-          <TableHead className="w-12" />
+          <TableHead className="h-10">Your agents</TableHead>
+          <TableHead className="h-10">Provider</TableHead>
+          <TableHead className="h-10">Schedule status</TableHead>
+          <TableHead className="h-10">Last edit</TableHead>
+          <TableHead className="h-10 w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -103,13 +104,13 @@ function AgentsListSection() {
           const hasSchedule = getAgentScheduleStatus(agent.name, schedules);
           return (
             <TableRow key={agent.name} className="h-[53px]">
-              <TableCell>
+              <TableCell className="px-3 py-2">
                 <span className="font-medium">{agent.name}</span>
               </TableCell>
-              <TableCell>
+              <TableCell className="px-3 py-2">
                 <span className="text-sm">Claude code</span>
               </TableCell>
-              <TableCell>
+              <TableCell className="px-3 py-2">
                 {hasSchedule ? (
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-1.5 py-1 text-xs font-medium text-secondary-foreground">
                     <Clock className="h-3 w-3 text-sky-600" />
@@ -122,7 +123,7 @@ function AgentsListSection() {
                   </span>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="px-3 py-2">
                 <span className="text-sm">
                   {new Date(agent.updatedAt).toLocaleDateString("en-US", {
                     month: "short",
@@ -131,7 +132,7 @@ function AgentsListSection() {
                   })}
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell className="px-2 py-2">
                 <Dialog>
                   <TooltipProvider>
                     <Tooltip>
