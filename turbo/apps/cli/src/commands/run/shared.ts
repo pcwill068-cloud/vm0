@@ -351,6 +351,9 @@ function handleGenericRunError(error: Error, commandLabel: string): void {
 /**
  * Common error handler for the main run command
  * Handles all standard error cases and calls process.exit(1)
+ *
+ * Note: Sentry automatically captures uncaught exceptions. Errors handled here
+ * are operational errors (user mistakes) and are filtered by beforeSend in instrument.ts.
  */
 export function handleRunError(error: unknown, identifier: string): void {
   if (error instanceof Error) {
@@ -382,6 +385,9 @@ export function handleRunError(error: unknown, identifier: string): void {
 /**
  * Common error handler for resume/continue commands
  * Handles all standard error cases and calls process.exit(1)
+ *
+ * Note: Sentry automatically captures uncaught exceptions. Errors handled here
+ * are operational errors (user mistakes) and are filtered by beforeSend in instrument.ts.
  */
 export function handleResumeOrContinueError(
   error: unknown,
