@@ -433,7 +433,8 @@ jobs:
             R2_USER_STORAGES_BUCKET_NAME=${{ vars.R2_USER_STORAGES_BUCKET_NAME }}
             SECRETS_ENCRYPTION_KEY=${{ secrets.SECRETS_ENCRYPTION_KEY }}
             OFFICIAL_RUNNER_SECRET=${{ secrets.OFFICIAL_RUNNER_SECRET }}
-            AXIOM_TOKEN=${{ secrets.AXIOM_TOKEN }}
+            AXIOM_TOKEN_SESSIONS=${{ secrets.AXIOM_TOKEN_SESSIONS }}
+            AXIOM_TOKEN_TELEMETRY=${{ secrets.AXIOM_TOKEN_TELEMETRY }}
             AXIOM_DATASET_SUFFIX=dev
             USE_MOCK_CLAUDE=true
             CRON_SECRET=${{ secrets.CRON_SECRET }}
