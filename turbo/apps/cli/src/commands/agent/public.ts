@@ -6,6 +6,7 @@ import {
   httpPost,
   type ApiError,
 } from "../../lib/api";
+import { withErrorHandler } from "../../lib/command";
 
 export const publicCommand = new Command()
   .name("public")
@@ -16,23 +17,29 @@ export const publicCommand = new Command()
     "Enable experimental agent sharing feature",
   )
   .action(
-    async (name: string, options: { experimentalSharedAgent?: boolean }) => {
-      // Validate experimental flag
-      if (!options.experimentalSharedAgent) {
-        console.error(
-          chalk.red("✗ This command requires --experimental-shared-agent flag"),
-        );
-        console.error();
-        console.error(chalk.dim("  Agent sharing is an experimental feature."));
-        console.error();
-        console.error("Example:");
-        console.error(
-          chalk.cyan(`  vm0 agent public ${name} --experimental-shared-agent`),
-        );
-        process.exit(1);
-      }
+    withErrorHandler(
+      async (name: string, options: { experimentalSharedAgent?: boolean }) => {
+        // Validate experimental flag
+        if (!options.experimentalSharedAgent) {
+          console.error(
+            chalk.red(
+              "✗ This command requires --experimental-shared-agent flag",
+            ),
+          );
+          console.error();
+          console.error(
+            chalk.dim("  Agent sharing is an experimental feature."),
+          );
+          console.error();
+          console.error("Example:");
+          console.error(
+            chalk.cyan(
+              `  vm0 agent public ${name} --experimental-shared-agent`,
+            ),
+          );
+          process.exit(1);
+        }
 
-      try {
         // Resolve compose by name
         const compose = await getComposeByName(name);
         if (!compose) {
@@ -69,12 +76,6 @@ export const publicCommand = new Command()
             `  vm0 run ${fullName} --experimental-shared-agent "your prompt"`,
           ),
         );
-      } catch (error) {
-        console.error(chalk.red("✗ Failed to make agent public"));
-        if (error instanceof Error) {
-          console.error(chalk.dim(`  ${error.message}`));
-        }
-        process.exit(1);
-      }
-    },
+      },
+    ),
   );
