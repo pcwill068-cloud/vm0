@@ -7,17 +7,20 @@ use crate::deps::{FIRECRACKER_VERSION, KERNEL_VERSION};
 use crate::error::{RunnerError, RunnerResult};
 use crate::paths::{HomePaths, RootfsPaths};
 
+pub const DEFAULT_VCPU: u32 = 2;
+pub const DEFAULT_MEMORY_MB: u32 = 2048;
+
 #[derive(Args, Clone)]
 pub struct SnapshotArgs {
-    /// SHA-256 hash of the rootfs inputs (output of `build-rootfs`).
+    /// SHA-256 hash of the rootfs inputs (output of `rootfs`).
     #[arg(long)]
-    rootfs_hash: String,
+    pub rootfs_hash: String,
     /// Number of vCPUs for the snapshot VM.
-    #[arg(long, default_value_t = 2)]
-    vcpu: u32,
+    #[arg(long, default_value_t = DEFAULT_VCPU)]
+    pub vcpu: u32,
     /// Memory size in MiB for the snapshot VM.
-    #[arg(long, default_value_t = 2048)]
-    memory_mb: u32,
+    #[arg(long, default_value_t = DEFAULT_MEMORY_MB)]
+    pub memory_mb: u32,
 }
 
 pub async fn run_snapshot(args: SnapshotArgs) -> RunnerResult<()> {
@@ -49,7 +52,7 @@ pub async fn run_snapshot(args: SnapshotArgs) -> RunnerResult<()> {
         .map_err(|e| RunnerError::Internal(format!("check rootfs: {e}")))?;
     if !rootfs_exists {
         return Err(RunnerError::Config(format!(
-            "rootfs not found at {}; run `build-rootfs` first",
+            "rootfs not found at {}; run `build` or `rootfs` first",
             rootfs_path.display()
         )));
     }
@@ -91,7 +94,7 @@ async fn is_snapshot_complete(output: &SnapshotOutputPaths) -> RunnerResult<bool
 ///
 /// Inputs:
 ///   - `sandbox_fc::config_hash()` — boot args, guest network config
-///   - `rootfs_hash` — rootfs content (from `build-rootfs`)
+///   - `rootfs_hash` — rootfs content (from `rootfs`)
 ///   - `FIRECRACKER_VERSION` / `KERNEL_VERSION` — binary versions
 ///   - `vcpu` / `memory_mb` — VM resource settings
 ///
