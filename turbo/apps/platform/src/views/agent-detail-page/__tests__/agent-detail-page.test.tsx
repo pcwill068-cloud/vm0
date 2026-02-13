@@ -161,4 +161,175 @@ describe("agent detail page", () => {
     const nav = screen.getByRole("navigation");
     expect(within(nav).getByText("Agents")).toBeInTheDocument();
   });
+
+  it("should show textarea for owner in markdown mode", async () => {
+    mockAgentDetailAPI({
+      instructions: {
+        content: "# Editable",
+        filename: "instructions.md",
+      },
+    });
+
+    await setupPage({
+      context,
+      path: "/agents/my-agent",
+      featureSwitches: { [FeatureSwitchKey.AgentDetailPage]: true },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Agent instructions")).toBeInTheDocument();
+    });
+
+    // Switch to markdown mode
+    fireEvent.click(screen.getByRole("tab", { name: "Markdown" }));
+
+    // Owner should see a textarea
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toBeInTheDocument();
+    expect(textarea).toHaveValue("# Editable");
+  });
+
+  it("should show Save/Discard when content is edited", async () => {
+    mockAgentDetailAPI({
+      instructions: {
+        content: "# Original",
+        filename: "instructions.md",
+      },
+    });
+
+    await setupPage({
+      context,
+      path: "/agents/my-agent",
+      featureSwitches: { [FeatureSwitchKey.AgentDetailPage]: true },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Agent instructions")).toBeInTheDocument();
+    });
+
+    // Switch to markdown mode and edit
+    fireEvent.click(screen.getByRole("tab", { name: "Markdown" }));
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "# Modified" } });
+
+    // Save and Discard buttons should appear
+    await vi.waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Discard" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should discard edits on Discard", async () => {
+    mockAgentDetailAPI({
+      instructions: {
+        content: "# Original",
+        filename: "instructions.md",
+      },
+    });
+
+    await setupPage({
+      context,
+      path: "/agents/my-agent",
+      featureSwitches: { [FeatureSwitchKey.AgentDetailPage]: true },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Agent instructions")).toBeInTheDocument();
+    });
+
+    // Switch to markdown mode, edit, then discard
+    fireEvent.click(screen.getByRole("tab", { name: "Markdown" }));
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "# Modified" } });
+
+    await vi.waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Discard" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    // Should revert to original
+    await vi.waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("# Original");
+    });
+
+    // Save/Discard should disappear
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
+  it("should initialize view mode from query param", async () => {
+    mockAgentDetailAPI({
+      instructions: {
+        content: "# From URL",
+        filename: "instructions.md",
+      },
+    });
+
+    await setupPage({
+      context,
+      path: "/agents/my-agent?view=markdown",
+      featureSwitches: { [FeatureSwitchKey.AgentDetailPage]: true },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Agent instructions")).toBeInTheDocument();
+    });
+
+    // Should start in markdown mode (from ?view=markdown), showing textarea
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("should show read-only pre for shared (non-owner) agents", async () => {
+    // Shared agent path has scope/name format
+    server.use(
+      http.get("/api/agent/composes", ({ request }) => {
+        const url = new URL(request.url);
+        const queryName = url.searchParams.get("name");
+        if (queryName !== "shared-agent") {
+          return new HttpResponse(null, { status: 404 });
+        }
+        return HttpResponse.json({
+          id: "compose_2",
+          name: "shared-agent",
+          headVersionId: "version_1",
+          content: {
+            version: "1",
+            agents: {
+              "shared-agent": {
+                description: "A shared agent",
+                framework: "claude-code",
+              },
+            },
+          },
+          createdAt: "2024-01-01T00:00:00Z",
+          updatedAt: "2024-01-01T00:00:00Z",
+        });
+      }),
+      http.get("/api/agent/composes/:id/instructions", () => {
+        return HttpResponse.json({
+          content: "# Shared Content",
+          filename: "instructions.md",
+        });
+      }),
+    );
+
+    await setupPage({
+      context,
+      path: `/agents/${encodeURIComponent("other-scope/shared-agent")}`,
+      featureSwitches: { [FeatureSwitchKey.AgentDetailPage]: true },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Agent instructions")).toBeInTheDocument();
+    });
+
+    // Switch to markdown mode — should be read-only (pre, not textarea)
+    fireEvent.click(screen.getByRole("tab", { name: "Markdown" }));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("# Shared Content")).toBeInTheDocument();
+  });
 });

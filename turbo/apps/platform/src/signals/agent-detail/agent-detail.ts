@@ -1,5 +1,6 @@
 import { command, computed, state } from "ccstate";
-import { pathParams$ } from "../route.ts";
+import { toast } from "@vm0/ui/components/ui/sonner";
+import { pathParams$, searchParams$, updateSearchParams$ } from "../route.ts";
 import { fetch$ } from "../fetch.ts";
 import { throwIfAbort } from "../utils.ts";
 import { logger } from "../log.ts";
@@ -100,7 +101,7 @@ export const fetchAgentDetail$ = command(async ({ get, set }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Instructions view mode — local UI state for markdown/preview toggle
+// Instructions view mode — synced with ?view= query param
 // ---------------------------------------------------------------------------
 
 type InstructionsViewMode = "markdown" | "preview";
@@ -113,9 +114,25 @@ function isInstructionsViewMode(v: string): v is InstructionsViewMode {
   return v === "markdown" || v === "preview";
 }
 
-export const setInstructionsViewMode$ = command(({ set }, v: string) => {
+export const initInstructionsViewMode$ = command(({ get, set }) => {
+  const params = get(searchParams$);
+  const view = params.get("view");
+  if (view && isInstructionsViewMode(view)) {
+    set(internalInstructionsViewMode$, view);
+  }
+});
+
+export const setInstructionsViewMode$ = command(({ get, set }, v: string) => {
   if (isInstructionsViewMode(v)) {
     set(internalInstructionsViewMode$, v);
+
+    const params = new URLSearchParams(get(searchParams$));
+    if (v === "preview") {
+      params.delete("view");
+    } else {
+      params.set("view", v);
+    }
+    set(updateSearchParams$, params);
   }
 });
 
@@ -164,5 +181,82 @@ export const fetchAgentInstructions$ = command(async ({ get, set }) => {
     throwIfAbort(error);
     L.error("Failed to fetch instructions:", error);
     set(agentInstructionsState$, { instructions: null, loading: false });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Instructions editing — owner inline editing state
+// ---------------------------------------------------------------------------
+
+const editedInstructionsContent$ = state<string | null>(null);
+
+export const editedContent$ = computed((get) =>
+  get(editedInstructionsContent$),
+);
+
+export const isInstructionsDirty$ = computed((get) => {
+  const edited = get(editedInstructionsContent$);
+  const instructions = get(agentInstructions$);
+  return edited !== null && edited !== (instructions?.content ?? "");
+});
+
+export const setEditedContent$ = command(({ set }, value: string) => {
+  set(editedInstructionsContent$, value);
+});
+
+export const cancelEditInstructions$ = command(({ set }) => {
+  set(editedInstructionsContent$, null);
+});
+
+const saveInstructionsLoading$ = state(false);
+export const isSavingInstructions$ = computed((get) =>
+  get(saveInstructionsLoading$),
+);
+
+export const saveInstructions$ = command(async ({ get, set }) => {
+  const detail = get(agentDetail$);
+  const edited = get(editedInstructionsContent$);
+  if (!detail || edited === null) {
+    return;
+  }
+
+  set(saveInstructionsLoading$, true);
+
+  try {
+    const fetchFn = get(fetch$);
+    const response = await fetchFn(
+      `/api/agent/composes/${detail.id}/instructions`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: edited }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to save instructions: ${response.statusText}`);
+    }
+
+    // Optimistically update the instructions state with the saved content
+    // so the UI reflects the change immediately without a re-fetch.
+    const current = get(agentInstructions$);
+    set(agentInstructionsState$, {
+      instructions: {
+        content: edited,
+        filename: current?.filename ?? null,
+      },
+      loading: false,
+    });
+
+    // Clear editing state
+    set(editedInstructionsContent$, null);
+
+    toast.success("Instructions saved");
+  } catch (error) {
+    throwIfAbort(error);
+    L.error("Failed to save instructions:", error);
+    toast.error("Failed to save instructions");
+  } finally {
+    set(saveInstructionsLoading$, false);
   }
 });
