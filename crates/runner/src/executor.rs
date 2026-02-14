@@ -13,6 +13,7 @@ const DEFAULT_EXEC_TIMEOUT: Duration = Duration::from_secs(300);
 use crate::api::ApiClient;
 use crate::error::RunnerResult;
 use crate::paths::guest;
+use crate::proxy::{self, ProxyRegistryHandle};
 use crate::types::ExecutionContext;
 
 /// Configuration for a single execution.
@@ -21,6 +22,7 @@ pub struct ExecutorConfig {
     pub vcpu: u32,
     pub memory_mb: u32,
     pub is_snapshot: bool,
+    pub registry: ProxyRegistryHandle,
 }
 
 /// Execute a single job inside a Firecracker VM.
@@ -84,8 +86,36 @@ async fn execute_inner(
         return Err(e.into());
     }
 
+    // Register VM in proxy registry (only when firewall is enabled)
+    let source_ip = sandbox.source_ip().to_string();
+    let firewall_enabled = context
+        .experimental_firewall
+        .as_ref()
+        .is_some_and(|fw| fw.enabled);
+
+    if let Some(fw) = &context.experimental_firewall
+        && fw.enabled
+    {
+        let run_id_str = context.run_id.to_string();
+        let registration = proxy::VmRegistration {
+            run_id: &run_id_str,
+            sandbox_token: &context.sandbox_token,
+            firewall_rules: fw.rules.as_deref().unwrap_or(&[]),
+            mitm_enabled: fw.experimental_mitm.unwrap_or(false),
+            seal_secrets_enabled: fw.experimental_seal_secrets.unwrap_or(false),
+        };
+        if let Err(e) = config.registry.register_vm(&source_ip, &registration).await {
+            warn!(run_id = %context.run_id, error = %e, "failed to register VM in proxy");
+        }
+    }
+
     // Run job inside sandbox, then destroy regardless of outcome
     let result = run_in_sandbox(sandbox.as_ref(), context, config).await;
+
+    // Unregister VM from proxy registry
+    if firewall_enabled && let Err(e) = config.registry.unregister_vm(&source_ip).await {
+        warn!(run_id = %context.run_id, error = %e, "failed to unregister VM from proxy");
+    }
 
     // Best-effort stop
     if let Err(e) = sandbox.stop().await {
@@ -355,7 +385,10 @@ mod tests {
         ExecutionContext {
             run_id: Uuid::nil(),
             prompt: "test prompt".into(),
+            agent_compose_version_id: None,
             vars: None,
+            secret_names: None,
+            checkpoint_id: None,
             sandbox_token: "tok".into(),
             working_dir: "/workspace".into(),
             storage_manifest: None,
@@ -363,6 +396,8 @@ mod tests {
             resume_session: None,
             secret_values: None,
             cli_agent_type: String::new(),
+            experimental_firewall: None,
+            debug_no_mock_claude: None,
             api_start_time: None,
             user_timezone: None,
         }
@@ -509,5 +544,56 @@ mod tests {
         let env = build_env_json(&ctx, "http://localhost");
         // User environment TZ takes precedence
         assert_eq!(env.get("TZ").unwrap(), "America/New_York");
+    }
+
+    /// Verify ExecutionContext deserializes from JSON matching the TS schema,
+    /// including the snake_case `experimentalFirewall` inner fields.
+    #[test]
+    fn deserialize_execution_context_with_firewall() {
+        let json = r#"{
+            "runId": "00000000-0000-0000-0000-000000000001",
+            "prompt": "hello",
+            "agentComposeVersionId": null,
+            "vars": null,
+            "secretNames": null,
+            "checkpointId": null,
+            "sandboxToken": "tok",
+            "workingDir": "/workspace",
+            "storageManifest": null,
+            "environment": null,
+            "resumeSession": null,
+            "secretValues": null,
+            "cliAgentType": "claude-code",
+            "experimentalFirewall": {
+                "enabled": true,
+                "rules": [
+                    {"domain": "*.example.com", "action": "ALLOW"},
+                    {"final": "DENY"}
+                ],
+                "experimental_mitm": true,
+                "experimental_seal_secrets": false
+            },
+            "debugNoMockClaude": true,
+            "apiStartTime": 1700000000.5,
+            "userTimezone": "Asia/Shanghai"
+        }"#;
+
+        let ctx: ExecutionContext = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            ctx.run_id.to_string(),
+            "00000000-0000-0000-0000-000000000001"
+        );
+        assert_eq!(ctx.prompt, "hello");
+        assert_eq!(ctx.cli_agent_type, "claude-code");
+
+        let fw = ctx.experimental_firewall.as_ref().unwrap();
+        assert!(fw.enabled);
+        let rules = fw.rules.as_ref().unwrap();
+        assert_eq!(rules.len(), 2);
+        assert_eq!(fw.experimental_mitm, Some(true));
+        assert_eq!(fw.experimental_seal_secrets, Some(false));
+
+        assert_eq!(ctx.api_start_time, Some(1700000000.5));
+        assert_eq!(ctx.user_timezone.as_deref(), Some("Asia/Shanghai"));
     }
 }
